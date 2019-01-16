@@ -1,6 +1,5 @@
 # produce summary graphs
-setwd("C:/cloud/Dropbox/sAPROPOS/")
-source("C:/CODE/moving_windows/format_data.R")
+source("code/format_data.R")
 library(tidyverse)
 library(magrittr)
 library(testthat)
@@ -13,10 +12,6 @@ m_back        <- 36
 interval      <- NULL
 pre_chelsa    <- NULL # '_pre_chelsa'
 
-# pipe-able Reduce_rbind and grep functions
-rbind_l     <- function(df_list){ Reduce(function(...) rbind(...), df_list) }
-
-
 # Summarize moving windows results by climate variable -------------------------------
 mod_perform <- function(ii){
   
@@ -26,11 +21,15 @@ mod_perform <- function(ii){
   resp_clim<- paste0("_",response,"_",clim_var)
   
   # read lambda/clim data 
-  lam     <- read.csv("all_demog_6tr.csv", stringsAsFactors = F) #%>%
+  lam     <- read.csv("C:/cloud/Dropbox/sAPROPOS/all_demog_6tr.csv", 
+                      stringsAsFactors = F) #%>%
                 #subset( SpeciesAuthor != "Purshia_subintegra" )
 
   # summary info 
-  res_folder<- paste0("results/moving_windows/",response,"/",clim_var,pre_chelsa,interval) 
+  res_folder<- paste0("C:/cloud/Dropbox/sAPROPOS/results/moving_windows/",
+                      response,
+                      "/",
+                      clim_var,pre_chelsa,interval) 
   sum_files <- list.files(res_folder)[grep("mod_summaries_", list.files(res_folder) )] %>% 
                   stringr::str_subset(resp_clim)
   mod_summ  <- lapply(sum_files, function(x) read.csv(paste0(res_folder,"/",x)) ) %>%
@@ -39,7 +38,7 @@ mod_perform <- function(ii){
   all_sums  <- Map(function(x,y) tibble::add_column(x, species = y, .before = 1), 
                      mod_summ, names(mod_summ) ) %>% 
                   lapply(function(x) dplyr::select(x,species, model, waic, looic, mse, elpd)) %>% 
-                  rbind_l  
+                  bind_rows  
           
   # species
   spp           <- names(mod_summ)
@@ -48,13 +47,13 @@ mod_perform <- function(ii){
   create_rep_n <- function(x, lam, response){
     
     data.frame( species = x,
-                rep_n   = format_species(x, lam, response) %>% rbind_l %>% nrow,
+                rep_n   = format_species(x, lam, response) %>% bind_rows %>% nrow,
                 rep_yr  = format_species(x, lam, response) %>% sapply(nrow) %>% max,
                 rep_p   = format_species(x, lam, response) %>% length,
                 stringsAsFactors = F) 
     
   }
-  rep_n_df <- lapply(spp, create_rep_n, lam, response) %>% rbind_l
+  rep_n_df <- lapply(spp, create_rep_n, lam, response) %>% bind_rows
   
   # spit out 
   left_join(all_sums, rep_n_df) %>% 
@@ -72,7 +71,7 @@ input_df    <- expand.grid( clim_var = c("precip","airt"),
 
 # ALL model information
 mod_perf_df  <- lapply(1:nrow(input_df), mod_perform) %>%
-                  rbind_l %>% 
+                  bind_rows %>% 
                   arrange(species, mse)
 
 
@@ -138,7 +137,7 @@ relative_bp <- function(resp, clim_v){
 }
 
 
-tiff(paste0("results/moving_windows/prop_dist_to_best_model.tiff"),
+tiff("results/prop_dist_to_best_model.tiff",
      unit="in", width=6.3, height=6.3, res=600,compression="lzw")
 
 par(mfrow=c(4,2), mar= c(3, 1.5, 1, 0.2) + 0.1, oma = c(0,3.5,0,0),
@@ -161,7 +160,7 @@ dev.off()
 
 
 # Boxplot: mean LPPD by response / climate variable combination ---------------------------------
-tiff(paste0("results/moving_windows/mean_lppd_by_resp_climvar.tiff"),
+tiff("results/mean_lppd_by_resp_climvar.tiff",
      unit="in", width=6.3, height=6.3, res=600,compression="lzw")
 
 # https://stackoverflow.com/questions/12995683/any-way-to-make-plot-points-in-scatterplot-more-transparent-in-r
@@ -270,7 +269,7 @@ plot_spp_lab <- function(x){
 
 
 
-tiff(paste0("results/moving_windows/mean_lppd_by_spp.tiff"),
+tiff("results/mean_lppd_by_spp.tiff",
      unit="in", width=6.3, height=6.3, res=600,compression="lzw")
 
 par(mfrow=c(3,2), mar = c(0,2,2,0.2), oma = c(8,2,0,0),
@@ -372,7 +371,7 @@ prop_heat_map <- function(resp, clim_v){
         axis.title=element_text(size=14,face="bold"),
         axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(fill = "Mean LPPD") +
-  ggsave(paste0("results/moving_windows/prop_diff_lppd_",
+  ggsave(paste0("results/prop_diff_lppd_",
              resp,"_",clim_v,".tiff"),
          width = 5, height = 5, compression="lzw") #res=600,
 
@@ -448,7 +447,7 @@ mean_lppd_diff_heat_map <- function(resp, clim_v){
         axis.title=element_text(size=14,face="bold"),
         axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(fill = expression(Delta*" Mean LPPD") ) +
-  ggsave(paste0("results/moving_windows/mean_lppd_diff_",
+  ggsave(paste0("results/mean_lppd_diff_",
              resp,"_",clim_v,".tiff"),
          width = 5, height = 5, compression="lzw") #res=600,
 
@@ -533,7 +532,7 @@ lppd_diff_heat_map <- function(resp, clim_v){
         axis.title=element_text(size=14,face="bold"),
         axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(fill = expression(Delta*" LPPD") ) +
-  ggsave(paste0("results/moving_windows/lppd_diff_",
+  ggsave(paste0("results/lppd_diff_",
              resp,"_",clim_v,".tiff"), 
          width = 5, height = 5, compression="lzw") #res=600,
 
@@ -584,7 +583,7 @@ abs_heat_map <- function(resp, clim_v){
         axis.title=element_text(size=14,face="bold"),
         axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(fill = "Mean LPPD") +
-  ggsave(paste0("results/moving_windows/abs_lppd_",
+  ggsave(paste0("results/abs_lppd_",
              resp,"_",clim_v,".tiff"), 
          width = 5, height = 5, compression="lzw") #res=600,
 
@@ -617,7 +616,7 @@ mod_labs    <- c('ctrl1','ctrl2','yr1','yr2','yr3','yr_wgt',
 # resp    <- 'surv'
 # clim_v  <- 'airt'
 
-# format the data as we want
+# format the differences in lppd
 form_diff_lppd_df <- function(resp, clim_v){
   
   perf_by_spp <- mod_perf_df %>%
@@ -625,7 +624,8 @@ form_diff_lppd_df <- function(resp, clim_v){
                     dplyr::select(species, model, rep_yr, rep_n, elpd) %>% 
                     mutate( elpd = replace(elpd, elpd == -Inf, NA)) %>%
                     spread(model, elpd)
-  perf_mat    <- dplyr::select(perf_by_spp, -species, -rep_yr, -rep_n) %>% t
+  perf_mat    <- perf_by_spp %>% 
+                    dplyr::select(-species, -rep_yr, -rep_n) %>% t
   
   # get minimum of maximum values
   get_max     <- function(ii) which(perf_mat[,ii] == max(perf_mat[,ii],na.rm=T))
@@ -634,7 +634,7 @@ form_diff_lppd_df <- function(resp, clim_v){
   spp_seq     <- 1:ncol(perf_mat)
   
   # matrix of benchmark ids
-  max_ids     <- sapply(spp_seq ,get_max) %>%
+  max_ids     <- sapply(spp_seq, get_max) %>%
                         cbind( spp_seq )
   
   # benchmark values
@@ -661,20 +661,54 @@ form_diff_lppd_df <- function(resp, clim_v){
   spp_v  <- long_df$species %>% unique %>% as.character
   
   find_best_mod <- function(x){
-    long_df %>% 
-      subset( species == x) %>% 
-      subset( elpd == max(elpd) ) %>% 
-      select(model, species)
+    long_df %>%
+      subset( species == x) %>%
+      subset( elpd == max(elpd) ) %>%
+      select( model, species )
   }
   
+  model_rank <- function(x){
+    long_df %>%
+      subset( species == x) %>%
+      arrange( desc(elpd) ) %>% 
+      mutate( mod_rank = c(1:nrow(.)) ) %>% 
+      mutate( mod_rank = replace(mod_rank,
+                                 mod_rank > 3,
+                                 NA) ) %>% 
+      # subset( mod_rank == mod_r) %>% 
+      select( model, species, mod_rank )
+  }
+  # find_best_mod <- function(x){
+  #   long_df %>%
+  #     subset( species == x) %>%
+  #     mutate( mod_rank = rank(elpd) ) %>%
+  #     select( model, mod_rank, species)
+  # }
+  
   # pick the best models
-  best_mod_df <- lapply(spp_v, find_best_mod) %>% 
-                    Reduce(function(...) rbind(...), .) %>% 
-                    mutate( best_mod = 1 ) %>% 
+  mod_sel_df <- lapply(spp_v, model_rank) %>% 
+                    bind_rows %>% 
                     right_join( long_df )
+  # mod_2_df <- lapply(spp_v, model_rank, 2) %>% 
+  #                   bind_rows %>% 
+  #                   mutate( mod_2 = 2 ) %>% 
+  #                   right_join( long_df )
+  # mod_3_df <- lapply(spp_v, model_rank, 1) %>% 
+  #                   bind_rows %>% 
+  #                   mutate( mod_3 = 3 ) %>% 
+  #                   right_join( long_df )
   
+  # mod_sel_df <- Reduce( function(...) full_join(...),
+  #                       list(mod_1_df,
+  #                            mod_2_df,
+  #                            mod_3_df) ) %>% 
+  #                 mutate( mod_size = 1 )
   
-  return(best_mod_df)
+  # best_mod_df %>% 
+  #   select(model, mod_rank, species) %>% 
+  #   spread( model, mod_rank ) %>% head
+  
+  return(mod_sel_df)
     
 }
 
@@ -686,7 +720,8 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   # plot it out
   p1 <- ggplot(format_function('surv', clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
-        geom_point(aes(size = best_mod)) +
+        geom_point(aes(size = 0.5,
+                       shape = as.character(mod_rank)) ) +
         scale_fill_viridis( guide = F, limits = var_lim ) + #
         ggtitle('Survival') +
         theme(title        = element_text(angle = 0, hjust = 0.5, size = 10), 
@@ -697,10 +732,11 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
               axis.text.x  = element_text(angle = 90, hjust = 1),
               legend.key   = element_blank()) +
         labs(fill = element_blank() )
-  
+    
   p2 <- ggplot(format_function('grow', clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
-        geom_point(aes(size = best_mod)) +
+        geom_point(aes(size = 0.5,
+                       shape = as.character(mod_rank)) ) +
         scale_fill_viridis( limits = var_lim ) + #
         guides(fill = F ) +
         ggtitle('Growth') +
@@ -715,7 +751,8 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   
   p3 <- ggplot(format_function('fec',clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
-        geom_point(aes(size = best_mod)) +
+        geom_point(aes(size = 0.5,
+                       shape = as.character(mod_rank)) ) +
         scale_fill_viridis( limits = var_lim ) + #
         guides(fill = F ) +
         ggtitle('Fecundity') +
@@ -731,7 +768,8 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   
   p4 <- ggplot(format_function('log_lambda',clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
-        geom_point(aes(size = best_mod)) +
+        geom_point(aes(size = 0.5,
+                       shape = as.character(mod_rank)) ) +
         scale_fill_viridis( limits = var_lim ) + #
         ggtitle('Log Lambda') +
         theme(title        = element_text(angle = 0, hjust = 0.5, size = 10),
@@ -755,9 +793,9 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
 
 # differences in absolute lppd plots
 four_tile_plot(form_diff_lppd_df, 'elpd', 'airt',    c(-30,0), 
-               expression(Delta*" LPPD"), 'lppd_diff_vr_airt.tiff')
+               expression(Delta*" LPPD"), 'results/lppd_diff_vr_airt.tiff')
 four_tile_plot(form_diff_lppd_df, 'elpd', 'precip',  c(-30,0), 
-               expression(Delta*" LPPD"), 'lppd_diff_vr_precip.tiff')
+               expression(Delta*" LPPD"), 'results/lppd_diff_vr_precip.tiff')
 
 
 format_function <- form_diff_lppd_df
@@ -765,7 +803,7 @@ fill_var    <- 'elpd'
 clim_v      <- 'airt'
 var_lim     <- c(-30,0)
 expr_fill   <- expression(Delta*" LPPD")
-file_title  <- 'lppd_diff_vr_airt.tiff'
+file_title  <- 'results/lppd_diff_vr_airt.tiff'
 
 
 # rank tile plots
@@ -837,7 +875,7 @@ form_rank_lppd_df <- function(resp, clim_v){
   # long df with model ranks!
   mod_rank_df <- lapply(spp_mod_l, function(x) mutate(x, rank = 1:13) ) %>% 
                     # ricompose in one data frame!
-                    rbind_l %>% 
+                    bind_rows %>% 
                     full_join( spp_df ) %>% 
                     mutate( model = factor(model, levels = mod_labs) ) %>%
                     arrange( rep_yr, rep_n, species, model )  %>% 
@@ -850,7 +888,4 @@ form_rank_lppd_df <- function(resp, clim_v){
   return(mod_rank_df)
     
 }
-
-
-
 

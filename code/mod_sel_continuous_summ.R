@@ -26,17 +26,22 @@ mod_perform <- function(ii){
                 #subset( SpeciesAuthor != "Purshia_subintegra" )
 
   # summary info 
+  
+  # result folder name
   res_folder<- paste0("C:/cloud/Dropbox/sAPROPOS/results/moving_windows/",
                       response,
                       "/",
                       clim_var,pre_chelsa,interval) 
+  # summary files names
   sum_files <- list.files(res_folder)[grep("mod_summaries_", list.files(res_folder) )] %>% 
                   stringr::str_subset(resp_clim)
+  # read files
   mod_summ  <- lapply(sum_files, function(x) read.csv(paste0(res_folder,"/",x)) ) %>%
                   setNames( gsub("mod_summaries_", "", sum_files ) ) %>%
                   setNames( gsub(paste0(resp_clim,".csv"), "", names(.) ) )
+  # all model selection summaries
   all_sums  <- Map(function(x,y) tibble::add_column(x, species = y, .before = 1), 
-                     mod_summ, names(mod_summ) ) %>% 
+                   mod_summ, names(mod_summ) ) %>% 
                   lapply(function(x) dplyr::select(x,species, model, waic, looic, mse, elpd)) %>% 
                   bind_rows  
           
@@ -55,11 +60,12 @@ mod_perform <- function(ii){
   }
   rep_n_df <- lapply(spp, create_rep_n, lam, response) %>% bind_rows
   
-  # spit out 
-  left_join(all_sums, rep_n_df) %>% 
-    mutate(mean_elpd = elpd / rep_n,
-           clim_var  = clim_var,
-           response  = response)
+  # spit it out
+  all_sums %>% 
+    left_join( rep_n_df ) %>% 
+    mutate( mean_elpd = elpd / rep_n,
+            clim_var  = clim_var,
+            response  = response )
 
 }
 
@@ -73,6 +79,41 @@ input_df    <- expand.grid( clim_var = c("precip","airt"),
 mod_perf_df  <- lapply(1:nrow(input_df), mod_perform) %>%
                   bind_rows %>% 
                   arrange(species, mse)
+
+
+# keep only species that are always present -------------------------------------------
+
+# species that are always present
+get_spp <- function(ii){
+  mod_perf_df %>% 
+    subset( clim_var == input_df$clim_var[ii] & 
+            response == input_df$response[ii]) %>% 
+    .$species %>% 
+    unique
+}
+
+# list of vectors
+spp_l_v <- lapply(1:nrow(input_df), get_spp )
+spp_all <- spp_l_v %>% unlist %>% unique
+
+# test all combinations 
+all_intersect <- function(spp_all, list_vec){
+  sapply(spp_all,
+         function(x) sapply(list_vec, 
+                            function(y) x %in% y) 
+  )
+}
+
+# vector of species common to all results files
+spp_common_v <- all_intersect(spp_all,spp_l_v) %>% 
+                  apply(2,sum) %>% 
+                  Filter( function(x) x == 8, .) %>% 
+                  names
+
+# keep spp for which data is available for every response X clim var combination
+mod_perf_df  <- mod_perf_df %>% 
+                  subset( species %in% spp_common_v )
+
 
 # Multiple Tileplots: differences in absolute lppd ---------------------------------------
 
@@ -134,12 +175,12 @@ form_diff_lppd_df <- function(resp, clim_v){
   
   spp_v  <- long_df$species %>% unique %>% as.character
   
-  find_best_mod <- function(x){
-    long_df %>%
-      subset( species == x) %>%
-      subset( elpd == max(elpd) ) %>%
-      select( model, species )
-  }
+  # find_best_mod <- function(x){
+  #   long_df %>%
+  #     subset( species == x) %>%
+  #     subset( elpd == max(elpd) ) %>%
+  #     select( model, species )
+  # }
   
   model_rank <- function(x){
     long_df %>%
@@ -150,43 +191,21 @@ form_diff_lppd_df <- function(resp, clim_v){
                                  mod_rank > 3,
                                  NA) ) %>% 
       mutate( mod_rank = as.character(mod_rank) ) %>% 
-      # subset( mod_rank == mod_r) %>% 
       select( model, species, mod_rank )
   }
-  # find_best_mod <- function(x){
-  #   long_df %>%
-  #     subset( species == x) %>%
-  #     mutate( mod_rank = rank(elpd) ) %>%
-  #     select( model, mod_rank, species)
-  # }
-  
+
   # pick the best models
   mod_sel_df <- lapply(spp_v, model_rank) %>% 
                     bind_rows %>% 
                     right_join( long_df )
-  # mod_2_df <- lapply(spp_v, model_rank, 2) %>% 
-  #                   bind_rows %>% 
-  #                   mutate( mod_2 = 2 ) %>% 
-  #                   right_join( long_df )
-  # mod_3_df <- lapply(spp_v, model_rank, 1) %>% 
-  #                   bind_rows %>% 
-  #                   mutate( mod_3 = 3 ) %>% 
-  #                   right_join( long_df )
-  
-  # mod_sel_df <- Reduce( function(...) full_join(...),
-  #                       list(mod_1_df,
-  #                            mod_2_df,
-  #                            mod_3_df) ) %>% 
-  #                 mutate( mod_size = 1 )
-  
-  # best_mod_df %>% 
-  #   select(model, mod_rank, species) %>% 
-  #   spread( model, mod_rank ) %>% head
   
   return(mod_sel_df)
     
 }
 
+
+form_diff_lppd_df('log_lambda', 'precip') %>% 
+  subset( grepl('Eryngium',species) ) %>% head
 
 # four tile plot 
 four_tile_plot <- function(format_function, fill_var, clim_v, var_lim, 
@@ -273,94 +292,83 @@ four_tile_plot(form_diff_lppd_df, 'elpd', 'precip',  c(-30,0),
                expression(Delta*" LPPD"), 'results/lppd_diff_vr_precip.tiff')
 
 
-format_function <- form_diff_lppd_df
-fill_var    <- 'elpd'
-clim_v      <- 'airt'
-var_lim     <- c(-30,0)
-expr_fill   <- expression(Delta*" LPPD")
-file_title  <- 'results/lppd_diff_vr_airt.tiff'
+# Code below is no more current -------------------------------------------------------
 
-
-# rank tile plots
-four_tile_plot(form_rank_lppd_df, 'rank', 'airt',   c(1,13),  
-               'Model rank',    'rank_lppd_vr_airt.tiff')
-four_tile_plot(form_rank_lppd_df, 'rank', 'precip', c(1,13),  
-               'Model rank',    'rank_lppd_vr_precip.tiff')
-
-# mean lppd
-range_m_lppd  <- mod_perf_df$mean_elpd %>% range(na.rm=T)
-four_tile_plot(form_mean_lppd_df, 'mean_elpd', 'airt',   c(-15,2), #range_m_lppd,
-               "Mean LPPD",       'mean_lppd_vr_airt.tiff')
-four_tile_plot(form_mean_lppd_df, 'mean_elpd', 'precip', c(-15,2), #range_m_lppd, 
-               "Mean LPPD",        'mean_lppd_vr_precip.tiff')
-
-
-
-
-# mean lppd plots
-resp   <- 'fec'
-clim_v <- 'precip'
-
-
-elpd_mod_df %>% 
-  group_by(species) %>% 
-  summarise( )
-
-
-mod_perf_df %>% subset( grepl('Trillium',species) & response=='fec' )
-
-# format the data as we want
-form_mean_lppd_df <- function(resp, clim_v){
-  
-  # data for specific response and climate variable
-  elpd_mod_df <- mod_perf_df %>%
-                    subset( response == resp & clim_var == clim_v ) %>%
-                    dplyr::select(species, model, rep_yr, rep_n, mean_elpd) %>% 
-                    mutate( mean_elpd = replace(mean_elpd, mean_elpd == -Inf, NA) )
-      
-  # long df with model ranks!
-  mean_elpd_df <- elpd_mod_df %>% 
-                    full_join( spp_df ) %>% 
-                    mutate( model = factor(model, levels = mod_labs) ) %>%
-                    arrange( rep_yr, rep_n, species, model )  %>% 
-                    mutate( species = replace(species,
-                                              grepl('Eriogonum',species),
-                                              'Eriogonum_longifolium...') ) %>% 
-                    mutate( species = factor(species, levels = unique(species)) ) 
-  
-  return(mean_elpd_df)
-    
-}
-
-
-
-# format the data as we want
-form_rank_lppd_df <- function(resp, clim_v){
-  
-  # data for specific response and climate variable
-  elpd_mod_df <- mod_perf_df %>%
-                    subset( response == resp & clim_var == clim_v ) %>%
-                    dplyr::select(species, model, rep_yr, rep_n, elpd) %>% 
-                    mutate( elpd = replace(elpd, elpd == -Inf, NA) ) %>% 
-                    arrange(species, elpd )
-      
-  # split data by species (to ricompose later)
-  spp_mod_l   <- split(elpd_mod_df, elpd_mod_df$species)
-  
-  # long df with model ranks!
-  mod_rank_df <- lapply(spp_mod_l, function(x) mutate(x, rank = 1:13) ) %>% 
-                    # ricompose in one data frame!
-                    bind_rows %>% 
-                    full_join( spp_df ) %>% 
-                    mutate( model = factor(model, levels = mod_labs) ) %>%
-                    arrange( rep_yr, rep_n, species, model )  %>% 
-                    mutate( species = replace(species,
-                                              grepl('Eriogonum',species),
-                                              'Eriogonum_longifolium...') ) %>% 
-                    mutate( species = factor(species, levels = unique(species)) ) %>% 
-                    mutate( rank = replace(rank, is.na(elpd), NA) )
-  
-  return(mod_rank_df)
-    
-}
-
+# format_function <- form_diff_lppd_df
+# fill_var    <- 'elpd'
+# clim_v      <- 'airt'
+# var_lim     <- c(-30,0)
+# expr_fill   <- expression(Delta*" LPPD")
+# file_title  <- 'results/lppd_diff_vr_airt.tiff'
+# 
+# 
+# # mean lppd
+# range_m_lppd  <- mod_perf_df$mean_elpd %>% range(na.rm=T)
+# four_tile_plot(form_mean_lppd_df, 'mean_elpd', 'airt',   c(-15,2), #range_m_lppd,
+#                "Mean LPPD",       'mean_lppd_vr_airt.tiff')
+# four_tile_plot(form_mean_lppd_df, 'mean_elpd', 'precip', c(-15,2), #range_m_lppd, 
+#                "Mean LPPD",        'mean_lppd_vr_precip.tiff')
+# 
+# 
+# # rank tile plots
+# four_tile_plot(form_rank_lppd_df, 'rank', 'airt',   c(1,13),  
+#                'Model rank',    'rank_lppd_vr_airt.tiff')
+# four_tile_plot(form_rank_lppd_df, 'rank', 'precip', c(1,13),  
+#                'Model rank',    'rank_lppd_vr_precip.tiff')
+# 
+# 
+# # format the data as we want
+# form_mean_lppd_df <- function(resp, clim_v){
+#   
+#   # data for specific response and climate variable
+#   elpd_mod_df <- mod_perf_df %>%
+#                     subset( response == resp & clim_var == clim_v ) %>%
+#                     dplyr::select(species, model, rep_yr, rep_n, mean_elpd, mod_rank) %>% 
+#                     mutate( mean_elpd = replace(mean_elpd, mean_elpd == -Inf, NA) )
+#       
+#   # long df with model ranks!
+#   mean_elpd_df <- elpd_mod_df %>% 
+#                     full_join( spp_df ) %>% 
+#                     mutate( model = factor(model, levels = mod_labs) ) %>%
+#                     arrange( rep_yr, rep_n, species, model )  %>% 
+#                     mutate( species = replace(species,
+#                                               grepl('Eriogonum',species),
+#                                               'Eriogonum_longifolium...') ) %>% 
+#                     mutate( species = factor(species, levels = unique(species)) ) 
+#   
+#   return(mean_elpd_df)
+#     
+# }
+# 
+# 
+# 
+# # format the data as we want
+# form_rank_lppd_df <- function(resp, clim_v){
+#   
+#   # data for specific response and climate variable
+#   elpd_mod_df <- mod_perf_df %>%
+#                     subset( response == resp & clim_var == clim_v ) %>%
+#                     dplyr::select(species, model, rep_yr, rep_n, elpd) %>% 
+#                     mutate( elpd = replace(elpd, elpd == -Inf, NA) ) %>% 
+#                     arrange(species, elpd )
+#       
+#   # split data by species (to ricompose later)
+#   spp_mod_l   <- split(elpd_mod_df, elpd_mod_df$species)
+#   
+#   # long df with model ranks!
+#   mod_rank_df <- lapply(spp_mod_l, function(x) mutate(x, rank = 1:13) ) %>% 
+#                     # ricompose in one data frame!
+#                     bind_rows %>% 
+#                     full_join( spp_df ) %>% 
+#                     mutate( model = factor(model, levels = mod_labs) ) %>%
+#                     arrange( rep_yr, rep_n, species, model )  %>% 
+#                     mutate( species = replace(species,
+#                                               grepl('Eriogonum',species),
+#                                               'Eriogonum_longifolium...') ) %>% 
+#                     mutate( species = factor(species, levels = unique(species)) ) %>% 
+#                     mutate( rank = replace(rank, is.na(elpd), NA) )
+#   
+#   return(mod_rank_df)
+#     
+# }
+# 

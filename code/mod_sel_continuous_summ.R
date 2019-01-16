@@ -675,6 +675,7 @@ form_diff_lppd_df <- function(resp, clim_v){
       mutate( mod_rank = replace(mod_rank,
                                  mod_rank > 3,
                                  NA) ) %>% 
+      mutate( mod_rank = as.character(mod_rank) ) %>% 
       # subset( mod_rank == mod_r) %>% 
       select( model, species, mod_rank )
   }
@@ -721,7 +722,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   p1 <- ggplot(format_function('surv', clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = 0.5,
-                       shape = as.character(mod_rank)) ) +
+                       shape = mod_rank) ) +
         scale_fill_viridis( guide = F, limits = var_lim ) + #
         ggtitle('Survival') +
         theme(title        = element_text(angle = 0, hjust = 0.5, size = 10), 
@@ -736,7 +737,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   p2 <- ggplot(format_function('grow', clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = 0.5,
-                       shape = as.character(mod_rank)) ) +
+                       shape = mod_rank) ) +
         scale_fill_viridis( limits = var_lim ) + #
         guides(fill = F ) +
         ggtitle('Growth') +
@@ -752,7 +753,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   p3 <- ggplot(format_function('fec',clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = 0.5,
-                       shape = as.character(mod_rank)) ) +
+                       shape = mod_rank) ) +
         scale_fill_viridis( limits = var_lim ) + #
         guides(fill = F ) +
         ggtitle('Fecundity') +
@@ -769,7 +770,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   p4 <- ggplot(format_function('log_lambda',clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = 0.5,
-                       shape = as.character(mod_rank)) ) +
+                       shape = mod_rank) ) +
         scale_fill_viridis( limits = var_lim ) + #
         ggtitle('Log Lambda') +
         theme(title        = element_text(angle = 0, hjust = 0.5, size = 10),

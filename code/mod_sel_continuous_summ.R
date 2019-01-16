@@ -42,7 +42,14 @@ mod_perform <- function(ii){
   # all model selection summaries
   all_sums  <- Map(function(x,y) tibble::add_column(x, species = y, .before = 1), 
                    mod_summ, names(mod_summ) ) %>% 
-                  lapply(function(x) dplyr::select(x,species, model, waic, looic, mse, elpd)) %>% 
+                  # selec ONLY these model selection variables
+                  lapply(function(x) x %>% 
+                                      dplyr::select(species, 
+                                                     model, 
+                                                     waic, 
+                                                     looic, 
+                                                     mse, 
+                                                     elpd)) %>% 
                   bind_rows  
           
   # species
@@ -214,7 +221,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   # plot it out
   p1 <- ggplot(format_function('surv', clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
-        geom_point(aes(size = 0.5,
+        geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
         scale_fill_viridis( guide = F, limits = var_lim ) + #
         ggtitle('Survival') +
@@ -229,7 +236,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
     
   p2 <- ggplot(format_function('grow', clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
-        geom_point(aes(size = 0.5,
+        geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
         scale_fill_viridis( limits = var_lim ) + #
         guides(fill = F ) +
@@ -245,7 +252,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   
   p3 <- ggplot(format_function('fec',clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
-        geom_point(aes(size = 0.5,
+        geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
         scale_fill_viridis( limits = var_lim ) + #
         guides(fill = F ) +
@@ -262,7 +269,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
   
   p4 <- ggplot(format_function('log_lambda',clim_v), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
-        geom_point(aes(size = 0.5,
+        geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
         scale_fill_viridis( limits = var_lim ) + #
         ggtitle('Log Lambda') +

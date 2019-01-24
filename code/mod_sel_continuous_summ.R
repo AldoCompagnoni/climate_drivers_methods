@@ -139,9 +139,9 @@ mod_labs    <- c('ctrl1','ctrl2','yr1','yr2','yr3','yr_wgt',
 # clim_v  <- 'airt'
 
 # format the differences in lppd
-form_diff_lppd_df <- function(resp, clim_v){
+form_diff_lppd_df <- function(resp, clim_v, mod_df){
   
-  perf_by_spp <- mod_perf_df %>%
+  perf_by_spp <- mod_df %>%
                     subset( response == resp & clim_var == clim_v ) %>%
                     dplyr::select(species, model, rep_yr, rep_n, elpd) %>% 
                     mutate( elpd = replace(elpd, elpd == -Inf, NA)) %>%
@@ -211,15 +211,12 @@ form_diff_lppd_df <- function(resp, clim_v){
 }
 
 
-form_diff_lppd_df('log_lambda', 'precip') %>% 
-  subset( grepl('Eryngium',species) ) %>% head
-
 # four tile plot 
-four_tile_plot <- function(format_function, fill_var, clim_v, var_lim, 
+four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim, 
                            expr_fill, file_title){
   
   # plot it out
-  p1 <- ggplot(format_function('surv', clim_v), aes(model, species)) +
+  p1 <- ggplot(format_function('surv', clim_v, mod_df), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
@@ -234,7 +231,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
               legend.key   = element_blank()) +
         labs(fill = element_blank() )
     
-  p2 <- ggplot(format_function('grow', clim_v), aes(model, species)) +
+  p2 <- ggplot(format_function('grow', clim_v, mod_df), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
@@ -250,7 +247,7 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
               axis.text.x  = element_text(angle = 90, hjust = 1),
               legend.key   = element_blank())
   
-  p3 <- ggplot(format_function('fec',clim_v), aes(model, species)) +
+  p3 <- ggplot(format_function('fec',clim_v, mod_df), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
@@ -267,9 +264,9 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
               legend.key   = element_blank()) +
         labs(fill = element_blank() )
   
-  p4 <- ggplot(format_function('log_lambda',clim_v), aes(model, species)) +
+  p4 <- ggplot(format_function('log_lambda',clim_v, mod_df), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
-        geom_point(aes(size = '0.7',
+        geom_point(aes(size  = '0.7',
                        shape = mod_rank) ) +
         scale_fill_viridis( limits = var_lim ) + #
         ggtitle('Log Lambda') +
@@ -293,89 +290,102 @@ four_tile_plot <- function(format_function, fill_var, clim_v, var_lim,
 }
 
 # differences in absolute lppd plots
-four_tile_plot(form_diff_lppd_df, 'elpd', 'airt',    c(-30,0), 
-               expression(Delta*" LPPD"), 'results/lppd_diff_vr_airt.tiff')
-four_tile_plot(form_diff_lppd_df, 'elpd', 'precip',  c(-30,0), 
-               expression(Delta*" LPPD"), 'results/lppd_diff_vr_precip.tiff')
+four_tile_plot(form_diff_lppd_df, 'elpd', 'airt', mod_perf_df,
+               c(-30,0),  expression(Delta*" LPPD"), 
+               'results/lppd_diff_vr_airt.tiff')
+four_tile_plot(form_diff_lppd_df, 'elpd', 'precip', mod_perf_df,
+               c(-30,0), expression(Delta*" LPPD"), 
+               'results/l ppd_diff_vr_precip.tiff')
 
 
-# Code below is no more current -------------------------------------------------------
+# black out models that did not converge --------------------------------
+mod_diag <- function(ii){
+  
+  clim_var <- input_df$clim_var[ii]
+  response <- input_df$response[ii]
+  interval <- input_df$interval[ii]
+  resp_clim<- paste0("_",response,"_",clim_var)
+  
+  # read lambda/clim data 
+  lam     <- read.csv("C:/cloud/Dropbox/sAPROPOS/all_demog_6tr.csv", 
+                      stringsAsFactors = F) #%>%
+                #subset( SpeciesAuthor != "Purshia_subintegra" )
 
-# format_function <- form_diff_lppd_df
-# fill_var    <- 'elpd'
-# clim_v      <- 'airt'
-# var_lim     <- c(-30,0)
-# expr_fill   <- expression(Delta*" LPPD")
-# file_title  <- 'results/lppd_diff_vr_airt.tiff'
-# 
-# 
-# # mean lppd
-# range_m_lppd  <- mod_perf_df$mean_elpd %>% range(na.rm=T)
-# four_tile_plot(form_mean_lppd_df, 'mean_elpd', 'airt',   c(-15,2), #range_m_lppd,
-#                "Mean LPPD",       'mean_lppd_vr_airt.tiff')
-# four_tile_plot(form_mean_lppd_df, 'mean_elpd', 'precip', c(-15,2), #range_m_lppd, 
-#                "Mean LPPD",        'mean_lppd_vr_precip.tiff')
-# 
-# 
-# # rank tile plots
-# four_tile_plot(form_rank_lppd_df, 'rank', 'airt',   c(1,13),  
-#                'Model rank',    'rank_lppd_vr_airt.tiff')
-# four_tile_plot(form_rank_lppd_df, 'rank', 'precip', c(1,13),  
-#                'Model rank',    'rank_lppd_vr_precip.tiff')
-# 
-# 
-# # format the data as we want
-# form_mean_lppd_df <- function(resp, clim_v){
-#   
-#   # data for specific response and climate variable
-#   elpd_mod_df <- mod_perf_df %>%
-#                     subset( response == resp & clim_var == clim_v ) %>%
-#                     dplyr::select(species, model, rep_yr, rep_n, mean_elpd, mod_rank) %>% 
-#                     mutate( mean_elpd = replace(mean_elpd, mean_elpd == -Inf, NA) )
-#       
-#   # long df with model ranks!
-#   mean_elpd_df <- elpd_mod_df %>% 
-#                     full_join( spp_df ) %>% 
-#                     mutate( model = factor(model, levels = mod_labs) ) %>%
-#                     arrange( rep_yr, rep_n, species, model )  %>% 
-#                     mutate( species = replace(species,
-#                                               grepl('Eriogonum',species),
-#                                               'Eriogonum_longifolium...') ) %>% 
-#                     mutate( species = factor(species, levels = unique(species)) ) 
-#   
-#   return(mean_elpd_df)
-#     
-# }
-# 
-# 
-# 
-# # format the data as we want
-# form_rank_lppd_df <- function(resp, clim_v){
-#   
-#   # data for specific response and climate variable
-#   elpd_mod_df <- mod_perf_df %>%
-#                     subset( response == resp & clim_var == clim_v ) %>%
-#                     dplyr::select(species, model, rep_yr, rep_n, elpd) %>% 
-#                     mutate( elpd = replace(elpd, elpd == -Inf, NA) ) %>% 
-#                     arrange(species, elpd )
-#       
-#   # split data by species (to ricompose later)
-#   spp_mod_l   <- split(elpd_mod_df, elpd_mod_df$species)
-#   
-#   # long df with model ranks!
-#   mod_rank_df <- lapply(spp_mod_l, function(x) mutate(x, rank = 1:13) ) %>% 
-#                     # ricompose in one data frame!
-#                     bind_rows %>% 
-#                     full_join( spp_df ) %>% 
-#                     mutate( model = factor(model, levels = mod_labs) ) %>%
-#                     arrange( rep_yr, rep_n, species, model )  %>% 
-#                     mutate( species = replace(species,
-#                                               grepl('Eriogonum',species),
-#                                               'Eriogonum_longifolium...') ) %>% 
-#                     mutate( species = factor(species, levels = unique(species)) ) %>% 
-#                     mutate( rank = replace(rank, is.na(elpd), NA) )
-#   
-#   return(mod_rank_df)
-#     
-# }
-# 
+  # summary info 
+  
+  # result folder name
+  res_folder<- paste0("C:/cloud/Dropbox/sAPROPOS/results/moving_windows/",
+                      response,
+                      "/",
+                      clim_var,pre_chelsa,interval) 
+  # summary files names
+  sum_files <- list.files(res_folder)[grep("mod_summaries_", list.files(res_folder) )] %>% 
+                  stringr::str_subset(resp_clim)
+  # read files
+  mod_summ  <- lapply(sum_files, function(x) read.csv(paste0(res_folder,"/",x)) ) %>%
+                  setNames( gsub("mod_summaries_", "", sum_files ) ) %>%
+                  setNames( gsub(paste0(resp_clim,".csv"), "", names(.) ) )
+  # all model selection summaries
+  all_sums  <- Map(function(x,y) tibble::add_column(x, species = y, .before = 1), 
+                   mod_summ, names(mod_summ) ) %>% 
+                  lapply(function(x) 
+                    dplyr::select(x,species, model, 
+                                  n_diverg, rhat_high, 
+                                  n_eff_low, mcse_high) ) %>% 
+                  bind_rows
+          
+  # species
+  spp           <- names(mod_summ)
+ 
+  # create information on total replication
+  create_rep_n <- function(x, lam, response){
+    
+    data.frame( species = x,
+                rep_n   = format_species(x, lam, response) %>% bind_rows %>% nrow,
+                rep_yr  = format_species(x, lam, response) %>% sapply(nrow) %>% max,
+                rep_p   = format_species(x, lam, response) %>% length,
+                stringsAsFactors = F) 
+    
+  }
+  rep_n_df <- lapply(spp, create_rep_n, lam, response) %>% bind_rows
+  
+  # spit it out
+  all_sums %>% 
+    left_join( rep_n_df ) %>% 
+    mutate( clim_var  = clim_var,
+            response  = response )
+
+}
+
+# load model diagnostics
+diag_df     <- lapply(1:nrow(input_df), mod_diag) %>% 
+                  bind_rows %>% 
+                  # Add "flags" for convergence issues
+                  mutate( diverg  = n_diverg > 0,
+                          rhat    = rhat_high > 0 ) %>% 
+                  # select only variables useful for merging
+                  select( species, model, response, clim_var,
+                          diverg, rhat )
+
+# NAs where one or more rhats > 1.1
+mod_rhat_df <- diag_df %>% 
+                  right_join( mod_perf_df) %>% 
+                  # black out elpd if one rhat > 1.1
+                  mutate( elpd = replace( elpd,
+                                          rhat,
+                                          NA) )
+
+# NAs where one or more divergent transition
+mod_dive_df <- diag_df %>% 
+                  right_join( mod_perf_df) %>% 
+                  # black out elpd if one rhat > 1.1
+                  mutate( elpd = replace( elpd,
+                                          diverg,
+                                          NA) )
+# differences in absolute lppd plots
+four_tile_plot(form_diff_lppd_df, 'elpd', 'airt',   mod_rhat_df,
+               c(-30,0), expression(Delta*" LPPD"), 
+               'results/lppd_diff_rhat_airt.tiff')
+four_tile_plot(form_diff_lppd_df, 'elpd', 'precip', mod_dive_df,
+               c(-30,0), expression(Delta*" LPPD"), 
+               'results/lppd_diff_div_precip.tiff')

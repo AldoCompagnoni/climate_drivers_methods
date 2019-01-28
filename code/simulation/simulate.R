@@ -368,17 +368,32 @@ dev.off()
 vecc <- dgev(1:36,5,1,0.4)
 lines(1:36,(vecc / sum(vecc)),col='magenta')
 
-# par_sad <- fit_sad_nest %>% 
-#                 rstan::extract() %>%
-#                 # rstan::extract(permuted=FALSE) %>%
-#                 as.data.frame %>% 
-#                 # point out iterations
-#                 mutate( iter = 1:nrow(.) )
-# 
-# par_sad %>% 
-#   select( grep('theta_m',names(.)) ) %>% 
-#   boxplot( ylim = c(0,1) )
-# 
-# par_sad %>% 
-#   select( grep('theta_y',names(.)) ) %>% 
-#   boxplot
+
+# examine chains ----------------------------------
+
+
+par_gaus <- mod_l$'0.7'[[1]] %>% 
+              rstan::extract(permuted=F) %>% 
+              as.data.frame %>% 
+              mutate( iter = 1:nrow(.) )
+
+par(mfcol=c(3,2))
+plot(par_gaus$iter,par_gaus$'chain:1.sens_mu',
+     type='l',ylab="sens_mu",
+     xlab="Iteraction")
+plot(par_gaus$iter,par_gaus$'chain:2.sens_mu',
+     type='l',ylab="sens_mu",
+     xlab="Iteraction")
+plot(par_gaus$iter,par_gaus$'chain:3.sens_mu',
+     type='l',ylab="sens_mu",
+     xlab="Iteraction")
+
+plot(par_gaus$iter,par_gaus$'chain:1.sens_sd',
+     type='l',ylab="sens_sd",
+     xlab="Iteraction")
+plot(par_gaus$iter,par_gaus$'chain:2.sens_sd',
+     type='l',ylab="sens_sd",
+     xlab="Iteraction")
+plot(par_gaus$iter,par_gaus$'chain:3.sens_sd',
+     type='l',ylab="sens_sd",
+     xlab="Iteraction")

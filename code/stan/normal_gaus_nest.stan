@@ -1,7 +1,7 @@
 
 functions {
-  real dexppow(real x, real mu, real sigma, real beta) {
-    return((beta / (2 * sigma * tgamma(1.0/beta)) ) * exp(-(fabs(x - mu)/sigma)^beta));
+  real dnorm(real x, real mu, real sigma) {
+    return((1 / sqrt(2 *pi()*pow(sigma, 2))) * exp(-((x-mu)^2) / (2*pow(sigma, 2))));
   }
 }
 
@@ -13,13 +13,11 @@ data {
   matrix[M,n_time] clim1;
   matrix[M,n_time] clim2;
   matrix[M,n_time] clim3;
-  real expp_beta;
 }
 
 parameters {
-  real<lower=0,upper=M> sens_mu;
-  real<lower=0,upper=M*2> sens_sd;
-  simplex[K] theta_y;
+  real<lower=0,upper=n_lag> sens_mu;
+  real<lower=0,upper=n_lag> sens_sd; //
   real alpha;
   real beta;
   real<lower=0> y_sd;
@@ -31,7 +29,7 @@ transformed parameters {
   matrix[K,n_time] x_m;
   
   for(i in 1:M)
-    sens_m[i] = dexppow(i, sens_mu, sens_sd, expp_beta);
+    sens_m[i] = dnorm(i, sens_mu, sens_sd);
   
   sens_m = sens_m / sum(sens_m);
   
@@ -48,11 +46,10 @@ transformed parameters {
 
 model {
   
-  // priors
   alpha ~ normal(0,1);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
-  
+ 
   // model
   y ~ normal(alpha + beta * x, y_sd);
 }
@@ -63,4 +60,4 @@ model {
 //   for (n in 1:n_time)
 //     log_lik[n] = normal_lpdf(y[n] | alpha + beta * x[n], y_sd);
 // }
-// 
+

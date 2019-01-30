@@ -34,7 +34,7 @@ data {
 parameters {
   real<lower=-2,upper=2> shape;
   real<lower=0,upper=M> scale;
-  real<lower=0,upper=M*2> loc;
+  real<lower=0,upper=M> loc;
   simplex[K] theta_y; 
   real alpha;
   real beta;

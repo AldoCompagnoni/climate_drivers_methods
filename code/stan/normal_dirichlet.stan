@@ -21,13 +21,18 @@ transformed parameters {
 }
 
 model {
+  
+  // priors  
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+ 
   // model
   y ~ normal(alpha + beta * x, y_sd);
 }
 
-generated quantities {
-  vector[n_time] log_lik;
-
-  for (n in 1:n_time)
-    log_lik[n] = normal_lpdf(y[n] | alpha + beta * x[n], y_sd);
-}
+// generated quantities {
+//   vector[n_time] log_lik;
+// 
+//   for (n in 1:n_time)
+//     log_lik[n] = normal_lpdf(y[n] | alpha + beta * x[n], y_sd);
+// }

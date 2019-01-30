@@ -118,6 +118,13 @@ sim_pars <- list(
 # here we focus on a normally distributed response
 family <- 'normal'
 
+# compile the models
+mod_gaus <- stan_model(file = paste0("code/stan/",family,"_gaus.stan") )
+mod_expp <- stan_model(file = paste0("code/stan/",family,"_expp.stan") )
+mod_gev  <- stan_model(file = paste0("code/stan/",family,"_gev.stan")  )
+mod_sad  <- stan_model(file = paste0("code/stan/",family,"_dirichlet_nest.stan") )
+
+
 # fit models based on data
 fit_mods <- function(df_x){
   
@@ -133,8 +140,8 @@ fit_mods <- function(df_x){
   )
   
   # gaussian moving window
-  fit_gaus <- stan(
-    file = paste0("code/stan/",family,"_gaus.stan"),
+  fit_gaus <- sampling(
+    object =mod_gaus,
     data = dat_stan,
     pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd'),
     warmup = sim_pars$warmup,
@@ -146,8 +153,8 @@ fit_mods <- function(df_x){
   )
   
   # exponential power moving window
-  fit_expp <- stan(
-    file = paste0("code/stan/",family,"_expp.stan"),
+  fit_expp <- sampling(
+    object = mod_expp,
     data = dat_stan,
     pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd'),
     warmup = sim_pars$warmup,
@@ -159,8 +166,8 @@ fit_mods <- function(df_x){
   )
   
   # Generalized extreme value 
-  fit_gev <- stan(
-    file = paste0("code/stan/",family,"_gev.stan"),
+  fit_gev <- sampling(
+    object = mod_gev,
     data = dat_stan,
     pars = c('loc', 'scale', "shape", 'alpha', 'beta', 'y_sd'),
     warmup = sim_pars$warmup,
@@ -178,8 +185,8 @@ fit_mods <- function(df_x){
   dat_stan$clim3        <- t(clim_m)[25:36,]
   
   # Simplex nested
-  fit_sad_nest <- stan(
-    file = paste0("code/stan/",family,"_dirichlet_nest.stan"),
+  fit_sad <- sampling(
+    object = mod_sad,
     data = dat_stan,
     pars = c('theta_y', 'theta_m', 'alpha', 'beta', 'y_sd'),
     warmup = sim_pars$warmup,
@@ -192,7 +199,7 @@ fit_mods <- function(df_x){
   list( fit_gaus, 
         fit_expp,
         fit_gev,
-        fit_sad_nest )
+        fit_sad )
   
 }
 
@@ -365,35 +372,61 @@ text(25,0.4,pos=1,'beta=2.2')
 dev.off()
 
 
-vecc <- dgev(1:36,5,1,0.4)
-lines(1:36,(vecc / sum(vecc)),col='magenta')
 
+plot(1:36,(vecc / sum(vecc)),col='magenta')
+vecc <- dgev(1:36,10,30,0)
+plot(vecc,type='l')
 
-# examine chains ----------------------------------
+# examine chains ------------------------------------
 
+# get divergent transitions
+sapply(mod_l$'0.2',get_div)
+sapply(mod_l$'0.7',get_div)
+sapply(mod_l$'1.2',get_div)
+sapply(mod_l$'1.7',get_div)
+sapply(mod_l$'2.2',get_div)
 
-par_gaus <- mod_l$'0.7'[[1]] %>% 
+# get Rhat
+sapply(mod_l$'0.2',get_rhat_n)
+sapply(mod_l$'0.7',get_rhat_n)
+sapply(mod_l$'1.2',get_rhat_n)
+sapply(mod_l$'1.7',get_rhat_n)
+sapply(mod_l$'2.2',get_rhat_n)
+
+mod_bet <- c('0.2','0.7','1.2','1.7','2.2')
+
+for(ii in 1:length(mod_bet)){
+  
+par_gaus <- mod_l[mod_bet[ii]][[1]][[1]] %>% 
               rstan::extract(permuted=F) %>% 
               as.data.frame %>% 
               mutate( iter = 1:nrow(.) )
 
+tiff(paste0('results/simulations/chains_',
+            mod_bet[ii],'_exp_n_lag.tiff'),
+     unit="in", width=6.3, height=8, res=600,compression="lzw" )
 par(mfcol=c(3,2))
 plot(par_gaus$iter,par_gaus$'chain:1.sens_mu',
-     type='l',ylab="sens_mu",
+     type='l',ylab="sens_mu",ylim =c(0,36),
      xlab="Iteraction")
 plot(par_gaus$iter,par_gaus$'chain:2.sens_mu',
-     type='l',ylab="sens_mu",
+     type='l',ylab="sens_mu",ylim =c(0,36),
      xlab="Iteraction")
 plot(par_gaus$iter,par_gaus$'chain:3.sens_mu',
-     type='l',ylab="sens_mu",
+     type='l',ylab="sens_mu",ylim =c(0,36),
      xlab="Iteraction")
 
 plot(par_gaus$iter,par_gaus$'chain:1.sens_sd',
-     type='l',ylab="sens_sd",
+     type='l',ylab="sens_sd",ylim =c(0,36),
      xlab="Iteraction")
 plot(par_gaus$iter,par_gaus$'chain:2.sens_sd',
-     type='l',ylab="sens_sd",
+     type='l',ylab="sens_sd",ylim =c(0,36),
      xlab="Iteraction")
 plot(par_gaus$iter,par_gaus$'chain:3.sens_sd',
-     type='l',ylab="sens_sd",
+     type='l',ylab="sens_sd",ylim =c(0,36),
      xlab="Iteraction")
+dev.off()
+
+}
+
+save.image( 'results/simulations/buonded_sd.Rdata')

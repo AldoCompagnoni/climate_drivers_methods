@@ -36,7 +36,7 @@ sd_df$sd_ll %>% max
 sd_df$sd_ll %>% min
 
 # set log lambda sd
-log_lambda_sd <- 0.5
+log_lambda_sd <- 0.3
 
 
 # format raw climate data (messy code) ----------------------------------------
@@ -252,7 +252,10 @@ mod_l$'2.2'  <- fit_mods( sim_data(2.2) ) %>% model_names
 
 # get divergent transitions
 get_div  <- function(x){
-  get_sampler_params(x, inc_warmup=T)[[1]][,'divergent__'] %>% 
+  get_sampler_params(x,inc_warmup=F) %>% 
+    # get divergent transitions for each chain
+    sapply( function(x) x[,'divergent__'] ) %>% 
+    as.vector %>% 
     sum
 }
 # number of params with Rhat issues 
@@ -285,6 +288,7 @@ format_list <- function(diag_l){
     .[,c('beta', 'gaus', 'expp', 'gev', 'sad')]
 }
   
+
 # get divergent transitions
 div_df <- list( sapply(mod_l$'0.2',get_div), 
                 sapply(mod_l$'0.45',get_div), 
@@ -315,18 +319,19 @@ write.csv(rhat_df,
 # betas ---------------------------------------------------------
 
 # estimated betas
-beta_est <- c( sapply(mod_l$'0.2',get_par, 'beta'),
+beta_est <- c( sapply(mod_l$'0.2', get_par, 'beta'),
                sapply(mod_l$'0.45',get_par, 'beta'),
-               sapply(mod_l$'0.7',get_par, 'beta'),
-               sapply(mod_l$'1.2',get_par, 'beta'),
-               sapply(mod_l$'1.7',get_par, 'beta'),
-               sapply(mod_l$'2.2',get_par, 'beta') )
+               sapply(mod_l$'0.7', get_par, 'beta'),
+               sapply(mod_l$'1.2', get_par, 'beta'),
+               sapply(mod_l$'1.7', get_par, 'beta'),
+               sapply(mod_l$'2.2', get_par, 'beta') )
 
 # data frame of betas
 b_df <- data.frame( beta_true = c(rep(0.2,4),
                                   rep(0.45,4),
                                   rep(0.7,4),
-                                  rep(1.2,4),rep(1.7,4),rep(2.2,4)),
+                                  rep(1.2,4),
+                                  rep(1.7,4),rep(2.2,4)),
                     mod       = rep(c('gaus','expp','gev','sad'),6),
                     beta_est  = beta_est )
 
@@ -334,7 +339,7 @@ b_df <- data.frame( beta_true = c(rep(0.2,4),
 tiff(paste0('results/simulations/betas/beta_true_est_nest_sd_',
             log_lambda_sd,'.tiff'),
      unit="in", width=6.3, height=6.3, res=600,compression="lzw" )
-par(mar=c(3.5,3.5,0.2,0.2), 
+par(mfrow=c(1,1), mar=c(3.5,3.5,0.2,0.2), 
     mgp=c(1.7,0.7,0))
 plot(beta_est ~ jitter(beta_true), 
      data=b_df, pch = 16,
@@ -541,21 +546,9 @@ dev.off()
 
 # examine chains ---------------------------------------------
 
-# get divergent transitions
-sapply(mod_l$'0.2',get_div)
-sapply(mod_l$'0.45',get_div)
-sapply(mod_l$'0.7',get_div)
-sapply(mod_l$'1.2',get_div)
-sapply(mod_l$'1.7',get_div)
-sapply(mod_l$'2.2',get_div)
-
-# get Rhat
-sapply(mod_l$'0.2',get_rhat_n)
-sapply(mod_l$'0.45',get_rhat_n)
-sapply(mod_l$'0.7',get_rhat_n)
-sapply(mod_l$'1.2',get_rhat_n)
-sapply(mod_l$'1.7',get_rhat_n)
-sapply(mod_l$'2.2',get_rhat_n)
+# looks at divergent transitions and problem Rhats
+div_df
+rhat_df
 
 mod_bet <- c('0.2','0.45','0.7','1.2','1.7','2.2')
 

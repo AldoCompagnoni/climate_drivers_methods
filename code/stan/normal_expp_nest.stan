@@ -18,7 +18,7 @@ data {
 
 parameters {
   real<lower=0,upper=M> sens_mu;
-  real<lower=0,upper=M*2> sens_sd;
+  real<lower=0,upper=M> sens_sd;
   simplex[K] theta_y;
   real alpha;
   real beta;

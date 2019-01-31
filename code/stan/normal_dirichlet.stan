@@ -25,7 +25,8 @@ model {
   // priors  
   alpha ~ normal(0,1);
   beta  ~ normal(0,1);
- 
+  y_sd  ~ gamma(1,1);
+   
   // model
   y ~ normal(alpha + beta * x, y_sd);
 }

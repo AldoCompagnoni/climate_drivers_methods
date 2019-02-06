@@ -31,7 +31,7 @@ data {
 }
 
 parameters {
-  real<lower=-2,upper=2> shape;
+  real<lower=-0.5,upper=0.5> shape;
   real<lower=0,upper=n_lag> scale; //
   real<lower=0,upper=n_lag> loc;
   real alpha;
@@ -57,6 +57,7 @@ model {
   alpha ~ normal(0,1);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
+  shape ~ normal(0,0.3);
   
   // model
   y ~ normal(alpha + beta * x, y_sd);

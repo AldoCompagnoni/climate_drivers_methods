@@ -1,4 +1,5 @@
 source("C:/CODE/moving_windows/format_data.R")
+library(shinystan)
 library(tidyverse)
 library(testthat)
 library(rstan)
@@ -104,11 +105,12 @@ anom_a  <- Reduce( function(...) inner_join(...),
 betas <- seq(0.2,2.2,by=0.5)
 
 # list to store models 
-mod_l <- list( '0.2' = NULL,
-               '0.7' = NULL,
-               '1.2' = NULL,
-               '1.7' = NULL,
-               '2.2' = NULL )
+mod_l <- list( '0.2'  = NULL,
+               '0.45' = NULL,
+               '0.7'  = NULL,
+               '1.2'  = NULL,
+               '1.7'  = NULL,
+               '2.2'  = NULL )
 
 # 'true' weight function. Mean in 5th month, sd = 1.
 pdens  <- dnorm(1:12, 5, 1)
@@ -124,6 +126,7 @@ sim_data <- function(beta_x){
   x      <- clim_m %*% w_v
 
   # function to produce normally distributed response
+  set.seed(101)
   prod_y <- function(x) rnorm(length(x), mean=0+x*beta_x, 
                               sd = log_lambda_sd)
   
@@ -246,6 +249,11 @@ mod_l$'0.7'  <- fit_mods( sim_data(0.7) ) %>% model_names
 mod_l$'1.2'  <- fit_mods( sim_data(1.2) ) %>% model_names
 mod_l$'1.7'  <- fit_mods( sim_data(1.7) ) %>% model_names
 mod_l$'2.2'  <- fit_mods( sim_data(2.2) ) %>% model_names
+
+# # save this image
+# save.image( paste0('results/simulations/',
+#                    'nested_sd_',
+#                    log_lambda_sd,'.Rdata') )
 
          
 # model evaluation 
@@ -417,7 +425,8 @@ ggplot( mutate(beta_post,
   ylab('Estimated beta') +
   xlab('True beta') + 
   ggsave(paste0('results/simulations/betas/beta_true_est_post_nest_sd_',
-                 log_lambda_sd,'.tiff') )
+                 log_lambda_sd,'.tiff'),
+         width = 6.3, height = 6.3)
 
 
 # weights ------------------------------------------------------
@@ -679,4 +688,10 @@ for(mod_ii in 1:4){
 }
 
 
-# save.image( 'results/simulations/buonded_sd.Rdata' )
+# examine chains using ShinyStan ---------------------------------------
+
+launch_shinystan(mod_l$'0.2'[[3]])
+
+# plot data vs. x_ante -------------------------------------------------
+
+

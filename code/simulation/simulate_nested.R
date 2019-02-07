@@ -1,10 +1,15 @@
 source("C:/CODE/moving_windows/format_data.R")
 library(shinystan)
-library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(viridis)
 library(testthat)
 library(rstan)
 library(evd)
+library(purrr)
 library(rmutil)
+library(parallel)
 
 # calculate realistic y_sd from data ------------------------------------
 
@@ -37,7 +42,7 @@ sd_df$sd_ll %>% max
 sd_df$sd_ll %>% min
 
 # set log lambda sd
-log_lambda_sd <- 0.3
+log_lambda_sd <- 0.5
 
 
 # format raw climate data (messy code) ----------------------------------------
@@ -324,6 +329,173 @@ write.csv(rhat_df,
                  log_lambda_sd,'.csv'), row.names=F)
 
 
+# standardized betas --------------------------------------------
+
+
+# choose which function to calculate x_antecedent with
+x_ante_post_choose <- function(mod,post_m){
+  
+  # calculate antecedents ----------------------------------
+  if(mod == 'sad'){
+  
+    x_ante_post <- function(pp,post_m){
+      
+      # x antecedent
+      w_v    <- c(post_m[pp,paste0('theta_m.',1:12)]*post_m[pp,'theta_y.1'],
+                  post_m[pp,paste0('theta_m.',1:12)]*post_m[pp,'theta_y.2'],
+                  post_m[pp,paste0('theta_m.',1:12)]*post_m[pp,'theta_y.3']) %>% 
+                  unlist
+      # x_ante
+      (clim_m %*% w_v) %>% as.vector
+      
+    }
+    
+  }
+  
+  if(mod == 'expp'){
+  
+    x_ante_post <- function(pp,post_m){
+      
+      # x antecedent
+      expp_w_v <- dexppow(xx, post_m[pp,'sens_mu'], 
+                              post_m[pp,'sens_sd'], 20)
+      w_v <- c( ((expp_w_v / sum(expp_w_v))*post_m[pp,'theta_y.1']),
+                ((expp_w_v / sum(expp_w_v))*post_m[pp,'theta_y.2']),
+                ((expp_w_v / sum(expp_w_v))*post_m[pp,'theta_y.3']) )
+     
+      # x_ante
+      (clim_m %*% w_v) %>% as.vector
+      
+    }
+    
+  }
+  
+  if(mod == 'gev'){
+  
+    x_ante_post <- function(pp,post_m){
+      
+      # gev
+      gev_w_v  <- dgev(xx, post_m[pp,'loc'], 
+                           post_m[pp,'scale'], 
+                           post_m[pp,'shape'] )
+      w_v      <- c( ((gev_w_v / sum(gev_w_v))*post_m[pp,'theta_y.1']),
+                     ((gev_w_v / sum(gev_w_v))*post_m[pp,'theta_y.2']),
+                     ((gev_w_v / sum(gev_w_v))*post_m[pp,'theta_y.3']) )
+      
+      (clim_m %*% w_v) %>% as.vector
+      
+    }
+    
+  }
+  
+  if(mod == 'gaus'){
+  
+    x_ante_post <- function(pp,post_m){
+      
+      # x antecedent
+      gaus_w_v <- dnorm(xx, post_m[pp,'sens_mu'], 
+                            post_m[pp,'sens_sd'])
+      w_v <- c( ((gaus_w_v / sum(gaus_w_v))*post_m[pp,'theta_y.1']),
+                ((gaus_w_v / sum(gaus_w_v))*post_m[pp,'theta_y.2']),
+                ((gaus_w_v / sum(gaus_w_v))*post_m[pp,'theta_y.3']) )
+     
+      # x_ante
+      (clim_m %*% w_v) %>% as.vector
+      
+    }
+    
+  }
+
+  x_ante_post
+  
+}
+
+
+# calculate standardized betas
+st_beta_df <- expand.grid( b_input = c('0.2',0.45,0.7,1.2,1.7,2.2),
+                           mod      = c("gaus","expp","gev","sad"),
+                           stringsAsFactors = F )
+
+beta_st <- function(ii,st_beta_df, mod_l){
+
+  b_input <- st_beta_df$b_input[ii]
+  mod      <- st_beta_df$mod[ii]
+
+  # extract posterior
+  post_m <- purrr::pluck(mod_l, b_input) %>% 
+                purrr::pluck(mod) %>% 
+                rstan::extract() %>% 
+                as.data.frame 
+
+  # produce x_antecedent
+  x_ante_post <- x_ante_post_choose(mod, post_m)
+  x_ante      <- lapply(1:nrow(post_m), x_ante_post, post_m)
+  
+  # calculate rest of the posterior
+  post_pred <- function(pp,post_m){
+    
+    b01    <- post_m[pp,c('alpha','beta')] %>% as.numeric
+    pl_df  <- data.frame( y      = sim_data(as.numeric(b_input))$y,
+                          x      = x_ante[[pp]],
+                          stringsAsFactors = F) %>% 
+                mutate( y_pred = b01[1] + b01[2]*x ) %>% 
+                mutate( perf = y - y_pred )
+      
+    # beta standardized
+    data.frame( b_st = b01[2] * sd(pl_df$x) / sd(pl_df$perf),
+                beta = b01[2],
+                sd_x = sd(pl_df$x),
+                sd_y = sd(pl_df$perf) )
+      
+  }
+  
+  # get the posterior
+  beta_post <- lapply(1:nrow(post_m), post_pred, post_m)
+  # beta_post <- lapply(1:2, post_pred) 
+  
+  # spit the row out 
+  beta_post %>% 
+    bind_rows %>% 
+    # remove NAs
+    subset( !(is.na(b_st) | is.na(beta) | is.na(sd_x) | is.na(sd_y)) ) %>% 
+    colMeans() %>% 
+    as.data.frame %>% t %>% 
+    as.data.frame %>% 
+    mutate( model   = mod,
+            b_sim   = b_input)
+   
+}
+
+# exponential power distribution
+dexppow <- function(x, mu, sigma, beta) {
+    return((beta / (2 * sigma * gamma (1.0/beta)) ) *
+             exp(-(abs(x - mu)/sigma)^beta));
+}
+
+xx <- 1:12
+
+# use maximum amount of cores suggested (max is 20, suggested is 10)
+cluster   <- parallel::makePSOCKcluster(4)
+
+# attach packages that will be needed on each cluster
+clusterEvalQ(cluster, list(library(lme4), library(dplyr), library(tidyr),
+                           library(rstan), library(purrr), library(evd)) )
+
+# attach objects that will be needed on each cluster
+clusterExport(cluster, c('clim_m', 'mod_l', 'clim_m', 'st_beta_df',
+                         'dexppow','x_ante_post_choose', 'sim_data',
+                         'xx', 'w_v', 'log_lambda_sd') )
+
+# try parallel run
+beta_st_l  <- parLapply(cluster, 1:nrow(st_beta_df), beta_st, st_beta_df, mod_l)
+beta_st_df <- beta_st_l %>% bind_rows
+
+# # store all this bounty
+# write.csv(beta_st_df,
+#           'results/simulations/beta_st_0.5_sim.csv',
+#           row.names=F)
+
+
 # betas ---------------------------------------------------------
 
 # estimated betas
@@ -476,12 +648,6 @@ get_weight <- function(x){
  
   list(gaus=gaus,expp=expp,gev=gev,sad=sad)
   
-}
-
-# exponential power distribution
-dexppow <- function(x, mu, sigma, beta) {
-    return((beta / (2 * sigma * gamma (1.0/beta)) ) *
-             exp(-(abs(x - mu)/sigma)^beta));
 }
 
 # plot weights
@@ -687,11 +853,50 @@ for(mod_ii in 1:4){
   }
 }
 
+# plot beta st -------------------------------------------------
+
+beta_st_03 <- read.csv('results/simulations/beta_st_sim.csv') %>% mutate(sd_sim=0.3)
+beta_st_05 <- read.csv('results/simulations/beta_st_0.5_sim.csv') %>% mutate(sd_sim=0.5)
+beta_st_df <- bind_rows(beta_st_03, beta_st_05) %>% 
+                mutate( sd_sim = as.character(sd_sim))
+
+
+# beta_st and betas
+ggplot(beta_st_df, aes(x=b_sim, y=b_st)) +
+  geom_point( aes(shape=sd_sim, color=model),
+              size = 3) +
+  geom_abline( intercept=0, slope=1 ) +
+  scale_colour_viridis( discrete = T ) +
+  xlab( expression('Simulated '*beta) ) + 
+  ylab( expression('Retrieved standardized '*beta) ) +
+  geom_point( aes(x=b_sim, y=beta), shape=15 ) +
+  ggsave('results/simulations/betas/beta_st.tiff',
+          width = 6.3, height = 6.3, compression='lzw')
+
+# residual sd
+ggplot(beta_st_df) + 
+  geom_point( aes(x=b_sim,y=sd_y,
+                  color=model,
+                  shape=sd_sim),
+              size=3) +
+  scale_colour_viridis( discrete = T) +
+  ylab( 'sd of y (simulations)' ) +
+  xlab( expression('Simulated '*beta) ) +
+  ggsave('results/simulations/betas/sd_y.tiff',
+         width = 6.3, height = 6.3, compression='lzw')
+
+# variance of x_antecedent
+ggplot(beta_st_df) + 
+  geom_point( aes(x=b_sim,y=sd_x,
+                  color=model,
+                  shape=sd_sim),
+              size=3) +
+  scale_colour_viridis( discrete = T) +
+  ylab( 'sd of x_antecedent (simulations)' ) +
+  xlab( expression('Simulated '*beta) ) +
+  ggsave(paste0('results/simulations/betas/sd_x.tiff'),
+         width = 6.3, height = 6.3, compression='lzw') 
+  
 
 # examine chains using ShinyStan ---------------------------------------
-
 launch_shinystan(mod_l$'0.2'[[3]])
-
-# plot data vs. x_ante -------------------------------------------------
-
-

@@ -1,9 +1,8 @@
-# Read data
+o# Read data
 # Read model results
 # plot spp. specific results
 rm(list=ls())
 options(stringsAsFactors=F)
-setwd("C:/cloud/Dropbox/sApropos/")
 source("C:/CODE/moving_windows/format_data.R")
 library(tidyverse)
 library(dismo)
@@ -151,9 +150,9 @@ plot_spp <- function(ii){
     # gev
     gev_w_v  <- dgev(xx, post_mean$loc, post_mean$scale,
                          post_mean$shape )
-    w_v      <- c( (gev_w_v / sum(gev_w_v)*post_mean$theta_y_1),
-                   (gev_w_v / sum(gev_w_v)*post_mean$theta_y_2),
-                   (gev_w_v / sum(gev_w_v)*post_mean$theta_y_3) )
+    w_v      <- c( ((gev_w_v / sum(gev_w_v))*post_mean$theta_y_1),
+                   ((gev_w_v / sum(gev_w_v))*post_mean$theta_y_2),
+                   ((gev_w_v / sum(gev_w_v))*post_mean$theta_y_3) )
     
     # plotting material  
     x_ante <- as.matrix(mod_data$climate) %*% w_v
@@ -180,9 +179,9 @@ plot_spp <- function(ii){
     # expp
     expp_w_v <- dexppow(xx, post_mean$sens_mu, 
                             post_mean$sens_sd, 20)
-    w_v <- c( (expp_w_v / sum(expp_w_v)*post_mean$theta_y_1),
-              (expp_w_v / sum(expp_w_v)*post_mean$theta_y_2),
-              (expp_w_v / sum(expp_w_v)*post_mean$theta_y_3) )
+    w_v <- c( ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_1),
+              ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_2),
+              ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_3) )
    
     # plotting material
     x_ante <- as.matrix(mod_data$climate) %*% w_v
@@ -245,164 +244,3 @@ dexppow <- function(x, mu, sigma, beta) {
 # plot it all out
 lapply(1:nrow(plot_in), plot_spp)
 
-
-# standardized beta ----------------------------------------------------------------
-beta_st <- function(ii){
-  
-  clim_var  <- plot_in$clim_var[ii]
-  mod       <- plot_in$model[ii]
-  spp_name  <- plot_in$species[ii]
-  
-  # store climate info
-  clim      <- clim_l[clim_var][[1]]
-  
-  # parameters
-  response  <- "log_lambda"
-  family    <- "normal"
-  expp_beta <- 20
-  m_back    <- 36    
-  st_dev    <- FALSE
-  xx        <- 1:12
-  
-  # format data --------------------------------------------
-  
-  # lambda 
-  spp_resp      <- format_species(spp_name, lam, response)
-  # climate
-  clim_separate <- clim_list(spp_name, clim, spp_resp)
-  clim_detrnded <- lapply(clim_separate, clim_detrend, clim_var)
-  clim_mats     <- Map(clim_long, clim_detrnded, spp_resp, m_back)
-  # model 
-  mod_data          <- lambda_plus_clim(spp_resp, clim_mats, response)
-  mod_data$climate  <- mod_data$climate #/ diff(range(mod_data$climate))
-  
-  
-  # calculate antecedents ----------------------------------
-  if(mod == 'simpl_n'){
-  
-    # let's start from SAD
-    post_m <- post_df %>% 
-                    subset( species == spp_name ) %>% 
-                    subset( model == 'simpl_n' )
-    
-    across_post <- function(pp){
-      
-      # x antecedent
-      w_v    <- c(post_m[pp,paste0('theta_m_',1:12)]*post_m[pp,'theta_y_1'],
-                  post_m[pp,paste0('theta_m_',1:12)]*post_m[pp,'theta_y_2'],
-                  post_m[pp,paste0('theta_m_',1:12)]*post_m[pp,'theta_y_3']) %>% 
-                  unlist
-      x_ante <- (as.matrix(mod_data$climate) %*% w_v) %>% as.vector
-      b01    <- post_m[pp,c('alpha','beta')] %>% as.numeric
-      pl_df  <- data.frame( y      = mod_data$resp$log_lambda,
-                            x      = x_ante,
-                            stringsAsFactors = F) %>% 
-                  mutate( y_pred = b01[1] + b01[2]*x ) %>% 
-                  mutate( perf = y - y_pred )
-      
-      # beta standardized
-      data.frame( b_st = b01[2] * sd(pl_df$x) / sd(pl_df$perf),
-                  beta = b01[2],
-                  sd_x = sd(pl_df$x),
-                  sd_y = sd(pl_df$perf) )
-      
-    }
-    
-  }
-  
-  # gev
-  if(mod == 'gev_n'){
-  
-    # let's start from SAD
-    post_m <- post_df %>% 
-                    subset( species == spp_name ) %>% 
-                    subset( model == 'gev_n' )
-    
-    across_post <- function(pp){
-      
-      # gev
-      gev_w_v  <- dgev(xx, post_m[pp,'loc'], 
-                           post_m[pp,'scale'], 
-                           post_m[pp,'shape'] )
-      w_v      <- c( (gev_w_v / sum(gev_w_v)*post_m[pp,'theta_y_1']),
-                     (gev_w_v / sum(gev_w_v)*post_m[pp,'theta_y_2']),
-                     (gev_w_v / sum(gev_w_v)*post_m[pp,'theta_y_3']) )
-      x_ante <- (as.matrix(mod_data$climate) %*% w_v) %>% as.vector
-      b01    <- post_m[pp,c('alpha','beta')] %>% as.numeric
-      pl_df  <- data.frame( y      = mod_data$resp$log_lambda,
-                            x      = x_ante,
-                            stringsAsFactors = F) %>% 
-                  mutate( y_pred = b01[1] + b01[2]*x ) %>% 
-                  mutate( perf = y - y_pred )
-      
-      # beta standardized
-      data.frame( b_st = b01[2] * sd(pl_df$x) / sd(pl_df$perf),
-                  beta = b01[2],
-                  sd_x = sd(pl_df$x),
-                  sd_y = sd(pl_df$perf) )
-      
-    }
-    
-  }
-  
-   # expp
-  if(mod == 'expp_n'){
-  
-    # let's start from SAD
-    post_m <- post_df %>% 
-                    subset( species == spp_name ) %>% 
-                    subset( model == 'expp_n' )
-    
-    across_post <- function(pp){
-      
-      # x antecedent
-      expp_w_v <- dexppow(xx, post_m[pp,'sens_mu'], 
-                              post_m[pp,'sens_mu'], 20)
-      w_v <- c( (expp_w_v / sum(expp_w_v)*post_m[pp,'theta_y_1']),
-                (expp_w_v / sum(expp_w_v)*post_m[pp,'theta_y_2']),
-                (expp_w_v / sum(expp_w_v)*post_m[pp,'theta_y_3']) )
-     
-      x_ante <- (as.matrix(mod_data$climate) %*% w_v) %>% as.vector
-      b01    <- post_m[pp,c('alpha','beta')] %>% as.numeric
-      pl_df  <- data.frame( y      = mod_data$resp$log_lambda,
-                            x      = x_ante,
-                            stringsAsFactors = F) %>% 
-                  mutate( y_pred = b01[1] + b01[2]*x ) %>% 
-                  mutate( perf = y - y_pred )
-      
-      # beta standardized
-      data.frame( b_st = b01[2] * sd(pl_df$x) / sd(pl_df$perf),
-                  beta = b01[2],
-                  sd_x = sd(pl_df$x),
-                  sd_y = sd(pl_df$perf) )
-      
-     }
-    
-   }
-  
-   # get the posterior
-   beta_post <- lapply(1:nrow(post_m), across_post)
-   
-   # spit the row out 
-   beta_post %>% 
-     bind_rows %>% 
-     colMeans %>% 
-     as.data.frame %>% t %>% 
-     as.data.frame %>% 
-     mutate( species = spp_name,
-             model   = mod,
-             clim_var= clim_var)
-   
-  
-}
-
-# simplified 
-plot_in <- expand.grid( model    = c('expp_n'),
-                        clim_var = c('precip' ),
-                        species  = spp,
-                        stringsAsFactors = F )
-
-
-init_t <- Sys.time()
-beta_l <- lapply(1:nrow(plot_in),beta_st)
-Sys.time() - init_t 

@@ -17,9 +17,13 @@ pre_chelsa    <- NULL # '_pre_chelsa'
 
 # plot standardized betas ------------------------------------------------
 
-# rad
+# standardize betas from simulations
+betas_st_ss <- read.csv('results/simulations/beta_st_0.5_sim.csv') 
+
+# standardize betas from data
 betas_st_df <- read.csv('I:/sie/101_data_AC/betas_st.csv') %>%
                   mutate( species = substr(species,1,20) )
+
 
 # standardized betas 
 ggplot(betas_st_df, aes(x=species, y=b_st) ) +
@@ -89,7 +93,7 @@ beta_h_df %>%
   geom_vline( aes(xintercept = med),
               linetype = 2) +
   facet_grid( ~ measure) +
-  ggsave('results/beta_hist.tiff',
+  ggsave('results/beta_hist1.tiff',
          height=3,width=6.3,compression='lzw')
 
 # exploratory
@@ -103,8 +107,27 @@ ggplot(betas_st_df) +
   ggsave('results/sd_y_vs_sd_x.tiff',
          height=3,width=6.3,compression='lzw')
 
-betas_st_df %>% 
-  subset( sd_x > 0.6)
+# combine beta_st from simulations and data
+
+beta_h_ss <- betas_st_ss %>% 
+               gather(measure,value, b_st:sd_y) 
+betas_all <- bind_rows(beta_h_df, beta_h_ss) %>% 
+               mutate( Origin = 'simulation' ) %>% 
+               mutate( Origin  = replace(Origin,
+                                         is.na(b_sim),
+                                         'data') )
+# beta_st: data vs. simulations
+ggplot(betas_all) + 
+  geom_density( aes(value, 
+                      color = Origin),
+                 size = 1,
+                   ) +
+  scale_color_viridis(discrete=TRUE) + 
+  facet_grid( ~ measure) +
+  ggsave('results/beta_data_vs_sim_0.5.tiff',
+         height=3,width=6.3,compression='lzw')
+  
+
 
 
 # Summarize moving windows results by climate variable -------------------------------

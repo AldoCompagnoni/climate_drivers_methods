@@ -1,6 +1,5 @@
 #bjtwd<-"C:/Users/admin_bjt162/Dropbox/A.Current/Ongoing_Collab_Research/sApropos project/"
 rm(list=ls())
-setwd("C:/cloud/Dropbox/sApropos/")
 source("C:/CODE/moving_windows/format_data.R")
 library(tidyverse)
 library(dismo)
@@ -17,15 +16,15 @@ options( mc.cores = parallel::detectCores() )
 rbind_l <- function(x) Reduce(function(...) rbind(...), x)
 
 # climate predictor, response, months back, max. number of knots
-response  <- "fec"
-clim_var  <- "airt"
+response  <- "log_lambda"
+clim_var  <- "precip"
 m_back    <- 36    
 st_dev    <- FALSE
 
 # read data -----------------------------------------------------------------------------------------
-lam       <- read.csv("all_demog_6tr.csv", stringsAsFactors = F)
-m_info    <- read.csv("MatrixEndMonth_information.csv", stringsAsFactors = F)
-clim      <- data.table::fread(paste0(clim_var,"_chelsa_hays.csv"),  stringsAsFactors = F)
+lam       <- read.csv("C:/cloud/Dropbox/sApropos/all_demog_6tr.csv", stringsAsFactors = F)
+m_info    <- read.csv("C:/cloud/Dropbox/sApropos/MatrixEndMonth_information.csv", stringsAsFactors = F)
+clim      <- data.table::fread(paste0('C:/cloud/Dropbox/sApropos/',clim_var,"_chelsa_hays.csv"),  stringsAsFactors = F)
 # clim      <- data.table::fread(paste0(clim_var,"_fc_hays.csv"),  stringsAsFactors = F)
 
 spp       <- lam$SpeciesAuthor %>% unique
@@ -42,7 +41,7 @@ if( response == "log_lambda")                             family = "normal"
 expp_beta     <- 20
 
 # set species (I pick Sphaeraclea_coccinea)
-ii            <- 13
+ii            <- 34
 spp_name      <- spp[ii]
 
 # lambda data
@@ -130,7 +129,7 @@ sim_pars <- list(
 
 # NULL model (model of the mean)
 fit_ctrl1 <- stan(
-  file = paste0("stan/",family,"_null.stan"),
+  file = paste0("code/stan/",family,"_null.stan"),
   data = dat_stan,
   pars = c('alpha', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -142,7 +141,7 @@ fit_ctrl1 <- stan(
 
 # average climate model
 fit_ctrl2 <- stan(
-  file = paste0("stan/",family,"_ctrl2.stan"),
+  file = paste0("code/stan/",family,"_ctrl2.stan"),
   data = dat_stan,
   pars = c('alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -156,7 +155,7 @@ fit_ctrl2 <- stan(
 # year t
 dat_stan$clim_means  <- rowMeans(mod_data$climate[,1:12 ])
 fit_yr1 <- stan(
-  file = paste0("stan/",family,"_yr.stan"),
+  file = paste0("code/stan/",family,"_yr.stan"),
   data = dat_stan,
   pars = c('alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -169,7 +168,7 @@ fit_yr1 <- stan(
 # year t-1
 dat_stan$clim_means  <- rowMeans(mod_data$climate[,13:24])
 fit_yr2 <- stan(
-  file = paste0("stan/",family,"_yr.stan"),
+  file = paste0("code/stan/",family,"_yr.stan"),
   data = dat_stan,
   pars = c('alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -182,7 +181,7 @@ fit_yr2 <- stan(
 # year t-2
 dat_stan$clim_means  <- rowMeans(mod_data$climate[,25:36])
 fit_yr3 <- stan(
-  file = paste0("stan/",family,"_yr.stan"),
+  file = paste0("code/stan/",family,"_yr.stan"),
   data = dat_stan,
   pars = c('alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -195,7 +194,7 @@ dat_stan$clim_means  <- rowMeans(mod_data$climate)
 
 # year weights
 fit_yr_weight <- stan(
-  file = paste0("stan/",family,"_yr_dirichlet.stan"),
+  file = paste0("code/stan/",family,"_yr_dirichlet.stan"),
   data = dat_stan,
   pars = c('theta', 'alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -207,7 +206,7 @@ fit_yr_weight <- stan(
 
 # year beta (a different beta for each year)
 fit_yr_beta <- stan(
-  file = paste0("stan/",family,"_yr_beta.stan"),
+  file = paste0("code/stan/",family,"_yr_beta.stan"),
   data = dat_stan,
   pars = c('alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -219,9 +218,9 @@ fit_yr_beta <- stan(
 
 # gaussian moving window
 fit_gaus <- stan(
-  file = paste0("stan/",family,"_gaus.stan"),
+  file = paste0("code/stan/",family,"_gaus.stan"),
   data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 'log_lik'),
+  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd'), #, 'log_lik'
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -229,11 +228,12 @@ fit_gaus <- stan(
   #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
+
 # exponential power moving window
 fit_expp <- stan(
-  file = paste0("stan/",family,"_expp.stan"),
+  file = paste0("code/stan/",family,"_expp.stan"),
   data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 'log_lik'),
+  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd'), #'log_lik'
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -243,20 +243,24 @@ fit_expp <- stan(
 
 # Generalized extreme value 
 fit_gev <- stan(
-  file = paste0("stan/",family,"_gev.stan"),
+  file = paste0("code/stan/",family,"_gev_scraped.stan"),
   data = dat_stan,
-  pars = c('loc', 'scale', "shape", 'alpha', 'beta', 'y_sd', 'log_lik'),
+  pars = c('mu', 'sigma', 'xi', 'alpha', 'beta', 'y_sd'), #, "shape", 'log_lik'
+  # pars = c('loc', 'scale', 'alpha', 'beta', 'y_sd'), #, "shape", 'log_lik'
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
+  init_r = 2,
   chains = sim_pars$chains#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
+  # control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
+
+launch_shinystan(fit_gev)
 
 # Simplex - 24 months
 dat_stan$clim <- t(mod_data$climate)
 fit_24 <- stan(
-  file = paste0("stan/",family,"_dirichlet.stan"),
+  file = paste0("code/stan/",family,"_dirichlet.stan"),
   data = dat_stan,
   pars = c('theta', 'alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -277,7 +281,7 @@ dat_stan$clim3        <- t(mod_data$climate)[25:36,]
 
 # Simplex nested
 fit_24_nest <- stan(
-  file = paste0("stan/",family,"_dirichlet_nest.stan"),
+  file = paste0("code/stan/",family,"_dirichlet_nest.stan"),
   data = dat_stan,
   pars = c('theta_y', 'theta_m', 'alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -289,7 +293,7 @@ fit_24_nest <- stan(
 
 # Generalized Extreme Value nested
 fit_gev_nest <- stan(
-  file = paste0("stan/",family,"_gev_nest.stan"),
+  file = paste0("code/stan/",family,"_gev_nest.stan"),
   data = dat_stan,
   pars = c('loc', 'scale', "shape", 'theta_y', 'alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -301,7 +305,7 @@ fit_gev_nest <- stan(
 
 # Power exponential nested 
 fit_expp_nest <- stan(
-  file = paste0("stan/",family,"_expp_nest.stan"),
+  file = paste0("code/stan/",family,"_expp_nest.stan"),
   data = dat_stan,
   pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd', 'log_lik'),
   warmup = sim_pars$warmup,
@@ -460,7 +464,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # fit control 1 (intercept only)
   fit_ctrl1_crossval <- stan(
-    file = paste0("stan/",family,"_null_crossval.stan"),
+    file = paste0("code/stan/",family,"_null_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('alpha', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -471,7 +475,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # fit control 2 (full window climate average)
   fit_ctrl2_crossval <- stan(
-    file = paste0("stan/",family,"_ctrl2_crossval.stan"),
+    file = paste0("code/stan/",family,"_ctrl2_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('alpha', 'beta', 'y_sd', 'pred_y', 'log_lik', 'log_lik_test'),
     warmup = sim_pars$warmup,
@@ -484,7 +488,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   dat_stan_crossval$clim_means_test   <- rowMeans( mod_data$climate[test_i, 1:12,drop=F] ) %>% array
   dat_stan_crossval$clim_means_train  <- rowMeans( mod_data$climate[-test_i,1:12,drop=F] ) %>% array
   fit_yr1_crossval <- stan(
-    file = paste0("stan/",family,"_yr_crossval.stan"),
+    file = paste0("code/stan/",family,"_yr_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -497,7 +501,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   dat_stan_crossval$clim_means_test   <- rowMeans( mod_data$climate[test_i, 13:24,drop=F] ) %>% array
   dat_stan_crossval$clim_means_train  <- rowMeans( mod_data$climate[-test_i,13:24,drop=F] ) %>% array
   fit_yr2_crossval <- stan(
-    file = paste0("stan/",family,"_yr_crossval.stan"),
+    file = paste0("code/stan/",family,"_yr_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -510,7 +514,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   dat_stan_crossval$clim_means_test   <- rowMeans( mod_data$climate[test_i, 25:36,drop=F] ) %>% array
   dat_stan_crossval$clim_means_train  <- rowMeans( mod_data$climate[-test_i,25:36,drop=F] ) %>% array
   fit_yr3_crossval <- stan(
-    file = paste0("stan/",family,"_yr_crossval.stan"),
+    file = paste0("code/stan/",family,"_yr_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -521,7 +525,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # year weights
   fit_yr_weight_crossval <- stan(
-    file = paste0("stan/",family,"_yr_dirichlet_crossval.stan"),
+    file = paste0("code/stan/",family,"_yr_dirichlet_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('theta', 'alpha', 'beta', 'y_sd', 'log_lik', 'pred_y','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -532,7 +536,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # year beta (a different beta for each year)
   fit_yr_beta_crossval <- stan(
-    file = paste0("stan/",family,"_yr_beta_crossval.stan"),
+    file = paste0("code/stan/",family,"_yr_beta_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('alpha', 'beta', 'y_sd', 'log_lik', 'pred_y','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -543,7 +547,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # fit moving window, gaussian
   fit_gaus_crossval <- stan(
-    file = paste0("stan/",family,"_gaus_crossval.stan"), 
+    file = paste0("code/stan/",family,"_gaus_crossval.stan"), 
     data = dat_stan_crossval,
     pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -555,7 +559,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # fit moving window, exponential power
   fit_expp_crossval <- stan(
-    file = paste0("stan/",family,"_expp_crossval.stan"),
+    file = paste0("code/stan/",family,"_expp_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -567,7 +571,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # fit GEV (generalized extreme value distribution)
   fit_gev_crossval <- stan(
-    file = paste0("stan/",family,"_gev_crossval.stan"),
+    file = paste0("code/stan/",family,"_gev_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('loc','scale','shape','alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -600,7 +604,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # fit 24 month simplex
   fit_24_crossval <- stan(
-    file = paste0("stan/",family,"_dirichlet_crossval.stan"),
+    file = paste0("code/stan/",family,"_dirichlet_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('theta','alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -611,7 +615,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # fit simplex nested within year
   fit_24_nest_crossval <- stan(
-    file = paste0("stan/",family,"_dirichlet_nest_crossval.stan"),
+    file = paste0("code/stan/",family,"_dirichlet_nest_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('theta_m', "theta_y",'alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -622,7 +626,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # fit gev nested within year
   fit_gev_nest_crossval <- stan(
-    file = paste0("stan/",family,"_gev_nest_crossval.stan"),
+    file = paste0("code/stan/",family,"_gev_nest_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('loc','scale','shape', "theta_y",'alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,
@@ -633,7 +637,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   
   # fit exponential power nested within year
   fit_expp_nest_crossval <- stan(
-    file = paste0("stan/",family,"_expp_nest_crossval.stan"),
+    file = paste0("code/stan/",family,"_expp_nest_crossval.stan"),
     data = dat_stan_crossval,
     pars = c('sens_mu','sens_sd', "theta_y",'alpha', 'beta', 'y_sd', 'pred_y', 'log_lik','log_lik_test'),
     warmup = sim_pars$warmup,

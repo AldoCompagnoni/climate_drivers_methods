@@ -17,7 +17,7 @@ data {
 
 parameters {
   real<lower=0,upper=M> sens_mu;
-  real<lower=0,upper=M> sens_sd; //
+  real<lower=0.75> sens_sd; //
   simplex[K] theta_y;
   real alpha;
   real beta;
@@ -50,6 +50,7 @@ model {
   alpha ~ normal(0,1);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
+  sens_sd ~ normal(0.5, 12);
  
   // model
   y ~ normal(alpha + beta * x, y_sd);

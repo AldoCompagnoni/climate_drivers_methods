@@ -328,6 +328,9 @@ write.csv(rhat_df,
           paste0('results/simulations/rhat_sd_',
                  log_lambda_sd,'.csv'), row.names=F)
 
+# Bayesian checks -----------------------------------------------
+
+
 
 # standardized betas --------------------------------------------
 
@@ -439,13 +442,13 @@ beta_st <- function(ii,st_beta_df, mod_l){
                           x      = x_ante[[pp]],
                           stringsAsFactors = F) %>% 
                 mutate( y_pred = b01[1] + b01[2]*x ) %>% 
-                mutate( perf = y - y_pred )
+                mutate( perf   = y - y_pred )
       
     # beta standardized
-    data.frame( b_st = b01[2] * sd(pl_df$x) / sd(pl_df$perf),
+    data.frame( b_st = b01[2] * sd(pl_df$x) / sd(pl_df$y),
                 beta = b01[2],
                 sd_x = sd(pl_df$x),
-                sd_y = sd(pl_df$perf) )
+                sd_y = sd(pl_df$y) )
       
   }
   

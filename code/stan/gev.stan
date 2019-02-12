@@ -2,7 +2,7 @@
 
 functions {
 
-  real gev_log (vector y, real mu, real sigma, real xi){
+  real gev_lpdf (vector y, real mu, real sigma, real xi){
     vector[rows(y)] z;
     real inv_xi;
     real neg_inv_xi; 
@@ -55,5 +55,5 @@ model {
   #mu ~ uniform
   #xi ~ uniform(-.5,.5);
 
-  increment_log_prob(gev_log(y, mu, sigma, xi)); 
+  increment_log_prob(gev_lpdf(y, mu, sigma, xi)); 
 }

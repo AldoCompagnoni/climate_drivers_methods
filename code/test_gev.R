@@ -55,7 +55,7 @@ fit_gev_s <- stan(
 launch_shinystan(fit_gev_s)
 
 fit_gev_sc <- stan(
-  file = paste0("code/stan/gev_scraped.stan"),
+  file = paste0("code/stan/gev_scr_vec.stan"),
   data = dat_stan,
   pars = c('sigma', 'xi', 'mu'), #, "shape", 'log_lik'
   warmup = sim_pars$warmup,

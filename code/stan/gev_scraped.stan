@@ -1,7 +1,7 @@
 
 functions{
   // GEV log pdf
-  real dgev(real y,real mu,real sigma,real xi){
+  real gev_lpdf(real y,real mu,real sigma,real xi){
       real z;
       real logp;
       real zi;
@@ -10,13 +10,14 @@ functions{
       zi = z^(-1/xi);
       
       logp = log(sigma) + (1 + 1/xi)*log(z) + zi;
-      return exp(logp); 
+      return logp;
+      // return exp(logp); 
   }
 }
 
 data {
   int<lower=0> N;
-  vector[N] y; //vector containing data
+  real y[N]; //vector containing data
 }
 parameters {
   real<lower=0> sigma;
@@ -29,6 +30,8 @@ model {
   xi ~ normal(0.05,1);
   mu ~ normal(1.2,1);
   
-  y ~ gev(mu,sigma,xi);
+  for(ii in 1:N){
+    target += gev_lpdf(y[ii] | mu, sigma, xi); 
+  }
 }
 

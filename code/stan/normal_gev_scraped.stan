@@ -22,7 +22,7 @@ data {
 }
   
 parameters {
-  real<lower=-2,upper=2> xi;
+  real<lower=-0.5,upper=0.5> xi;
   real<lower=1> sigma; //
   real<lower=0,upper=n_lag> mu;
   real alpha;
@@ -48,7 +48,7 @@ model {
   alpha ~ normal(0,1);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
-  sigma ~ normal(1, 12);
+  sigma ~ normal(1.01, 12);
   
   // model
   y ~ normal(alpha + beta * x, y_sd);

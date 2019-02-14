@@ -33,7 +33,7 @@ data {
 
 parameters {
   real<lower=-2,upper=2> shape;
-  real<lower=0,upper=M> scale;
+  real<lower=1,upper=M> scale;
   real<lower=0,upper=M> loc;
   simplex[K] theta_y; 
   real alpha;
@@ -68,6 +68,7 @@ model {
   alpha ~ normal(0,1);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
+  scale  ~ normal(1,12);
 
   // model
   y ~ normal(alpha + beta * x, y_sd);

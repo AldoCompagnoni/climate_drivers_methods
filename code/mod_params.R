@@ -18,7 +18,8 @@ pre_chelsa    <- NULL # '_pre_chelsa'
 # plot standardized betas ------------------------------------------------
 
 # standardize betas from simulations
-betas_st_ss <- read.csv('results/simulations/beta_st_0.5_sim.csv') 
+betas_st_05 <- read.csv('results/simulations/beta_st_0.5_sim.csv') 
+betas_st_03 <- read.csv('results/simulations/beta_st_0.3_sim.csv') 
 
 # standardize betas from data
 betas_st_df <- read.csv('I:/sie/101_data_AC/betas_st.csv') %>%
@@ -107,24 +108,50 @@ ggplot(betas_st_df) +
   ggsave('results/sd_y_vs_sd_x.tiff',
          height=3,width=6.3,compression='lzw')
 
-# combine beta_st from simulations and data
 
-beta_h_ss <- betas_st_ss %>% 
-               gather(measure,value, b_st:sd_y) 
-betas_all <- bind_rows(beta_h_df, beta_h_ss) %>% 
-               mutate( Origin = 'simulation' ) %>% 
-               mutate( Origin  = replace(Origin,
-                                         is.na(b_sim),
-                                         'data') )
+# beta_st from simulations and data
+beta_h_05 <- betas_st_05 %>% 
+               gather(measure,value, b_st:sd_y) %>% 
+               mutate( Origin = 'Sim_sd_05' )
+beta_h_03 <- betas_st_03 %>% 
+               gather(measure,value, b_st:sd_y) %>% 
+               mutate( Origin = 'Sim_sd_03' )
+
+
+# only beta_st from sims with true beta 0.2 or 0.45
+beta_02_03 <- beta_h_03 %>% subset( b_sim < 0.5 ) 
+beta_02_05 <- beta_h_05 %>% subset( b_sim < 0.5 ) 
+
+# plot only beta standardized 
+bind_rows( list(beta_h_df, 
+                beta_02_03,
+                beta_02_05) ) %>% 
+  mutate( Origin  = replace(Origin,
+                            is.na(b_sim),
+                            'data') ) %>%
+  subset( measure == 'b_st') %>% 
+  ggplot() +
+  geom_density( aes(value, color=Origin),
+                 size = 1 ) +
+  scale_color_viridis(discrete=TRUE) +
+  ggtitle( expression('Sim true '*beta*' = 0.2 or 0.45') ) +
+  ggsave('results/beta_st_data_vs_sim_0.2_0.45.tiff',
+         height=3,width=6.3,compression='lzw')
+
+
 # beta_st: data vs. simulations
-ggplot(betas_all) + 
-  geom_density( aes(value, 
-                      color = Origin),
-                 size = 1,
-                   ) +
+bind_rows( list(beta_h_df, 
+                beta_h_05, 
+                beta_h_03) ) %>% 
+  mutate( Origin  = replace(Origin,
+                           is.na(b_sim),
+                           'data') ) %>% 
+  ggplot() + 
+  geom_density( aes(value, color = Origin),
+                 size = 1 ) +
   scale_color_viridis(discrete=TRUE) + 
   facet_grid( ~ measure) +
-  ggsave('results/beta_data_vs_sim_0.5.tiff',
+  ggsave('results/beta_data_vs_sim.tiff',
          height=3,width=6.3,compression='lzw')
   
 

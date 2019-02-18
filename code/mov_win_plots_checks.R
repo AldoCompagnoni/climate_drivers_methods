@@ -13,9 +13,6 @@ library(evd)
 rstan_options( auto_write = TRUE )
 options( mc.cores = parallel::detectCores() )
 
-# "pipeable" Reduce rbind
-rbind_l <- function(x) Reduce(function(...) rbind(...), x)
-
 # climate predictor, response, months back, max. number of knots
 response  <- "log_lambda"
 clim_var  <- "precip"
@@ -678,7 +675,42 @@ for(ii in 13:35){
             row.names=F)
 
 }
-  
+
+
+# plot bayesian p-values ----------------------------------
+
+# read Bayesian p_values for precipitation models only
+pval_df <- lapply(paste0('results/checks/bayes_pvalues/',
+                  list.files('results/checks/bayes_pvalues/') ),
+                  read.csv, stringsAsFactors=F) %>% 
+            bind_rows
+
+# pvalues ~ model
+ggplot(pval_df,
+       aes(x=mod,y=p_val)) +
+  geom_point( ) + 
+  geom_hline( yintercept= 0.9, linetype=2) +
+  geom_hline( yintercept= 0.1, linetype=2 ) +
+  theme( axis.text = element_text(angle=90) ) +
+  xlab( 'Model' ) + 
+  ylab( 'Bayesian P-value' ) +
+  ggsave('results/checks/bayes_pvalues/pval_mod.tiff',
+         width=6.3,height=6.3, compression='lzw')
+
+# pvalues ~ species
+mutate(pval_df,
+       spp_name = substr(spp_name,1,10) ) %>% 
+ggplot(aes(x=spp_name,y=p_val)) +
+  geom_point( ) + 
+  geom_hline( yintercept= 0.9, linetype=2) +
+  geom_hline( yintercept= 0.1, linetype=2 ) +
+  theme( axis.text = element_text(angle=90) ) +
+  xlab( 'Species' ) +
+  ylab( 'Bayesian P-value' ) +
+  ggsave('results/checks/bayes_pvalues/pval_spp.tiff',
+         width=6.3,height=6.3, compression='lzw')
+
+
 # # plot dirichlet
 # fit_36_nest %>% 
 #   rstan::extract() %>% 

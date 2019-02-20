@@ -38,7 +38,9 @@ model {
 
 generated quantities {
   vector[n_train] log_lik;
+  vector[n_test]  pred_y;
   vector[n_test]  log_lik_test;
+  
   
   // in sample prediction
   for (n in 1:n_train)
@@ -46,6 +48,7 @@ generated quantities {
   
   // out of sample prediction
   for(n in 1:n_test){
-    log_lik_test[n] = normal_lpdf(y_test[n] | alpha + row(clim_test,n) * beta, y_sd);
+    pred_y[n]       = alpha + row(clim_test,n) * beta;
+    log_lik_test[n] = normal_lpdf(y_test[n] | pred_y[n], y_sd);
   }
 }

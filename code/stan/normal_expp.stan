@@ -40,15 +40,16 @@ model {
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
   sens_sd ~ normal(0.5, 12);
+  sens_mu ~ normal(18.5, 36);
 
   // model
   y ~ normal(alpha + beta * x, y_sd);
 }
 
-// generated quantities {
-//   vector[n_time] log_lik;
-//   
-//   for (n in 1:n_time)
-//     log_lik[n] = normal_lpdf(y[n] | alpha + beta * x[n], y_sd);
-// }
+generated quantities {
+  vector[n_time] log_lik;
+
+  for (n in 1:n_time)
+    log_lik[n] = normal_lpdf(y[n] | alpha + beta * x[n], y_sd);
+}
 

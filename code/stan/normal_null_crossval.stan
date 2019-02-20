@@ -13,6 +13,10 @@ parameters {
 }
 
 model {
+  
+  // prior
+  y_sd ~ gamma(1,1);
+  
   // model
   y_train ~ normal(alpha, y_sd);
 }

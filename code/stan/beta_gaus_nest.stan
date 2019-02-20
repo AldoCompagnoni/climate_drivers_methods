@@ -1,7 +1,7 @@
 
 functions {
-  real dexppow(real x, real mu, real sigma, real beta) {
-    return((beta / (2 * sigma * tgamma(1.0/beta)) ) * exp(-(fabs(x - mu)/sigma)^beta));
+  real dnorm(real x, real mu, real sigma) {
+    return((1 / sqrt(2 *pi()*pow(sigma, 2))) * exp(-((x-mu)^2) / (2*pow(sigma, 2))));
   }
 }
 
@@ -13,7 +13,6 @@ data {
   matrix[M,n_time] clim1;
   matrix[M,n_time] clim2;
   matrix[M,n_time] clim3;
-  real expp_beta;
 }
 
 parameters {
@@ -37,7 +36,7 @@ transformed parameters {
   matrix[K,n_time] x_m;
   
   for(n in 1:M)
-    sens_m[n] = dexppow(n, sens_mu, sens_sd, expp_beta);
+    sens_m[n] = dnorm(n, sens_mu, sens_sd);
   
   sens_m = sens_m / sum(sens_m);
   

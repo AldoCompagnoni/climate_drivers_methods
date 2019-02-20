@@ -1,4 +1,10 @@
 
+functions {
+  real dnorm(real x, real mu, real sigma) {
+    return((1 / sqrt(2 *pi()*pow(sigma, 2))) * exp(-((x-mu)^2) / (2*pow(sigma, 2))));
+  }
+}
+
 data {
   int n_train;
   int n_test;
@@ -17,8 +23,9 @@ data {
 }
 
 parameters {
-  simplex[K] theta_y;
-  simplex[M] theta_m;
+  real<lower=0,upper=M> sens_mu;
+  real<lower=0,upper=M*2> sens_sd;
+  simplex[K] theta_y; 
   real alpha;
   real beta;
   real<lower=0> y_sd;
@@ -30,18 +37,24 @@ transformed parameters {
   real<lower=0> A[n_train];             // parameter for beta distn
   real<lower=0> B[n_train];             // parameter for beta distn
 
-  matrix[K,n_train] x_m;
   vector[n_train] x;
+  vector[M] sens_m;
+  matrix[K,n_train] x_m;
   
-  for(i in 1:n_train){
-    x_m[1,i] = sum(theta_m .* clim1_train[,i]); 
-    x_m[2,i] = sum(theta_m .* clim2_train[,i]);
-    x_m[3,i] = sum(theta_m .* clim3_train[,i]);
+  for(i in 1:M)
+    sens_m[i] = dnorm(i, sens_mu, sens_sd);
+  
+  sens_m = sens_m / sum(sens_m);
+  
+  for(i in 1:n_train) {
+    x_m[1,i] = sum(sens_m .* clim1_train[,i]); 
+    x_m[2,i] = sum(sens_m .* clim2_train[,i]);
+    x_m[3,i] = sum(sens_m .* clim3_train[,i]);
   }
-  
+
   for(i in 1:n_train)
     x[i] = sum(theta_y .* x_m[,i]);
-
+  
   for(n in 1:n_train){
     mu[n]  = inv_logit(alpha + x[n] * beta);
     A[n]   = mu[n] * y_sd;
@@ -50,19 +63,20 @@ transformed parameters {
 }
 
 model {
-  
   // priors
   alpha ~ normal(0,1);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
+  sens_sd ~ normal(0.5, 12);
+  sens_mu ~ normal(6.5, 12);
   theta_y ~ dirichlet(rep_vector(1.0, K));
-  theta_m ~ dirichlet(rep_vector(1.0, M));
   
   // model
   y_train ~ beta(A, B);
 }
 
 generated quantities {
+   
   vector[n_train]  log_lik;
   vector[n_test]   log_lik_test;
   vector[n_test]   pred_y;
@@ -70,15 +84,15 @@ generated quantities {
   real             pred_x;
   real<lower=0>    A_test[n_test]; // parameter for beta distn
   real<lower=0>    B_test[n_test]; // parameter for beta distn
-  
+
   for(n in 1:n_train)
     log_lik[n] = beta_lpdf(y_train[n] | A[n], B[n]);
   
   // out of sample prediction
   for(n in 1:n_test){
-    pred_x_m[1,n]   = sum(theta_m .* clim1_test[,n]); 
-    pred_x_m[2,n]   = sum(theta_m .* clim2_test[,n]);
-    pred_x_m[3,n]   = sum(theta_m .* clim3_test[,n]);
+    pred_x_m[1,n] = sum(sens_m  .* clim1_test[,n]); 
+    pred_x_m[2,n] = sum(sens_m  .* clim2_test[,n]);
+    pred_x_m[3,n] = sum(sens_m  .* clim3_test[,n]);
     pred_x          = sum(theta_y .* pred_x_m[,n]);
     pred_y[n]       = inv_logit(alpha + pred_x * beta);
     A_test[n]       = pred_y[n] * y_sd;

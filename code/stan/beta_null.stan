@@ -6,14 +6,14 @@ data {
 
 parameters {
   real alpha;
-  real<lower=0.1> y_sd;       // Flower-to-fruit overdispersion parameter
+  real<lower=0.1> y_sd;       // dispersion parameter
 }
 
 transformed parameters{
   
-  real<lower=0,upper=1> mu[n_time];    // transformed linear predictor for mean of beta distribution
-  real<lower=0> A[n_time];               // parameter for beta distn
-  real<lower=0> B[n_time];               // parameter for beta distn
+  real<lower=0,upper=1> mu[n_time]; // transf. lin. pred. for mean of beta distrib.
+  real<lower=0> A[n_time];          // parameter for beta distn
+  real<lower=0> B[n_time];          // parameter for beta distn
   
   for(n in 1:n_time){
     mu[n]  = inv_logit( alpha );
@@ -24,6 +24,11 @@ transformed parameters{
 }
 
 model {
+  
+  // priors
+  alpha ~ normal(0,1);
+  y_sd  ~ gamma(1,1); 
+  
   // model
   y ~ beta(A, B);
 }

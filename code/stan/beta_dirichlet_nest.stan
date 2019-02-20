@@ -44,8 +44,17 @@ transformed parameters {
 }
 
 model {
+  
+  // priors
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1);
+  theta_y ~ dirichlet(rep_vector(1.0, K));
+  theta_m ~ dirichlet(rep_vector(1.0, M));
+  
   // likelihood
   y ~ beta(A, B);
+  
 }
 
 generated quantities {

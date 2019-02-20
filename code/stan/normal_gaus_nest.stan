@@ -17,7 +17,7 @@ data {
 
 parameters {
   real<lower=0,upper=M> sens_mu;
-  real<lower=0.75> sens_sd; //
+  real<lower=1> sens_sd; //
   simplex[K] theta_y;
   real alpha;
   real beta;
@@ -51,15 +51,16 @@ model {
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
   sens_sd ~ normal(0.5, 12);
+  sens_mu ~ normal(6.5, 12);
  
   // model
   y ~ normal(alpha + beta * x, y_sd);
 }
 
-// generated quantities {
-//   vector[n_time] log_lik;
-//   
-//   for (n in 1:n_time)
-//     log_lik[n] = normal_lpdf(y[n] | alpha + beta * x[n], y_sd);
-// }
+generated quantities {
+  vector[n_time] log_lik;
+
+  for (n in 1:n_time)
+    log_lik[n] = normal_lpdf(y[n] | alpha + beta * x[n], y_sd);
+}
 

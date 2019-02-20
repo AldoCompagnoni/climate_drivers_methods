@@ -26,6 +26,12 @@ transformed parameters {
 }
 
 model {
+  
+  // priors
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1); 
+
   // likelihood
   y ~ beta(A, B);
 }

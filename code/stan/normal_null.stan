@@ -18,13 +18,16 @@ model {
     m[ny] = alpha;
   }
   
+  // prior
+  y_sd  ~ gamma(1,1);
+  
   // model
   y ~ normal(m, y_sd);
 }
 
 generated quantities {
   vector[n_time] log_lik;
-  
+
   for (n in 1:n_time)
     log_lik[n] = normal_lpdf(y[n] | alpha, y_sd);
 }

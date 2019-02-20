@@ -51,6 +51,14 @@ transformed parameters {
 
 
 model {
+  
+  // priors
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1);
+  sens_sd ~ normal(0.5, 12);
+  sens_mu ~ normal(18.5, 36);
+  
   // model
   y_train ~ beta(A, B);
 }

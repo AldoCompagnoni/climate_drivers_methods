@@ -1,4 +1,11 @@
 
+functions {
+  real dnorm(real x, real mu, real sigma) {
+    return((1 / sqrt(2 *pi()*pow(sigma, 2))) * exp(-((x-mu)^2) / (2*pow(sigma, 2))));
+  }
+}
+
+
 data {
   int n_train;
   int n_test;
@@ -17,42 +24,51 @@ data {
 }
 
 parameters {
-  simplex[K] theta_y;
-  simplex[M] theta_m;
+  real<lower=0,upper=M> sens_mu;
+  real<lower=1> sens_sd;
+  simplex[K] theta_y; 
   real alpha;
   real beta;
   real<lower=0> y_sd;
 }
 
 transformed parameters {
-  matrix[K,n_train] x_m;
+  
   vector[n_train] x;
+  vector[M] sens_m;
+  matrix[K,n_train] x_m;
   
-  for(i in 1:n_train){
-    x_m[1,i] = sum(theta_m .* clim1_train[,i]); 
-    x_m[2,i] = sum(theta_m .* clim2_train[,i]);
-    x_m[3,i] = sum(theta_m .* clim3_train[,i]);
+  for(i in 1:M)
+    sens_m[i] = dnorm(i, sens_mu, sens_sd);
+  
+  sens_m = sens_m / sum(sens_m);
+  
+  for(i in 1:n_train) {
+    x_m[1,i] = sum(sens_m .* clim1_train[,i]); 
+    x_m[2,i] = sum(sens_m .* clim2_train[,i]);
+    x_m[3,i] = sum(sens_m .* clim3_train[,i]);
   }
-  
+
   for(i in 1:n_train)
     x[i] = sum(theta_y .* x_m[,i]);
+  
 }
 
 model {
-  
   // priors
-  alpha   ~ normal(0,1);
-  beta    ~ normal(0,1);
-  y_sd    ~ gamma(1,1);
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1);
+  sens_sd ~ normal(0.5, 12);
+  sens_mu ~ normal(6.5, 12); 
   theta_y ~ dirichlet(rep_vector(1.0, K));
-  theta_m ~ dirichlet(rep_vector(1.0, M));
-
+  
   // model
   y_train ~ normal(alpha + beta * x, y_sd);
 }
 
 generated quantities {
-  
+   
   vector[n_train]  log_lik;
   vector[n_test]   pred_y;
   vector[n_test]   log_lik_test;
@@ -64,15 +80,12 @@ generated quantities {
   
   // out of sample prediction
   for(n in 1:n_test){
-    
-    pred_x_m[1,n] = sum(theta_m .* clim1_test[,n]); 
-    pred_x_m[2,n] = sum(theta_m .* clim2_test[,n]);
-    pred_x_m[3,n] = sum(theta_m .* clim3_test[,n]);
+    pred_x_m[1,n] = sum(sens_m  .* clim1_test[,n]); 
+    pred_x_m[2,n] = sum(sens_m  .* clim2_test[,n]);
+    pred_x_m[3,n] = sum(sens_m  .* clim3_test[,n]);
     pred_x        = sum(theta_y .* pred_x_m[,n]);
 
     pred_y[n]       = alpha + beta * pred_x;
     log_lik_test[n] = normal_lpdf(y_test[n] | alpha + beta * pred_x, y_sd);
   }
-
 }
-

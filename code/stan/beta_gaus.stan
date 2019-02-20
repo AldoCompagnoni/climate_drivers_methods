@@ -17,7 +17,7 @@ data {
 parameters {
   
   real<lower=0,upper=n_lag> sens_mu;
-  real<lower=0,upper=n_lag*2> sens_sd;
+  real<lower=1> sens_sd;
   real alpha;
   real beta;
   real<lower=0> y_sd;
@@ -35,11 +35,13 @@ transformed parameters{
   vector[n_time] x;
   row_vector[n_lag] sens;
   
-  for(i in 1:n_lag) { sens[i] = dnorm(i, sens_mu, sens_sd); }
+  for(i in 1:n_lag) 
+    sens[i] = dnorm(i, sens_mu, sens_sd);
   
   sens = sens / sum(sens);
   
-  for(n in 1:n_time){ x[n] = sum(sens .* row(clim, n)); }
+  for(n in 1:n_time)
+    x[n] = sum(sens .* row(clim, n)); 
     
   for(n in 1:n_time){
     mu[n]  = inv_logit(alpha + x[n] * beta);
@@ -47,11 +49,17 @@ transformed parameters{
     B[n]   = (1.0 - mu[n]) * y_sd;
   }
 
-    
 }
 
 model {
   
+  // priors
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1);
+  sens_sd ~ normal(0.5, 12);
+  sens_mu ~ normal(18.5, 36);
+
   // likelihood
   y ~ beta(A, B);
   

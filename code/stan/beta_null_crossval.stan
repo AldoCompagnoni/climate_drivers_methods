@@ -25,6 +25,11 @@ transformed parameters{
 }
 
 model {
+  
+  // priors
+  alpha ~ normal(0,1);
+  y_sd  ~ gamma(1,1); 
+  
   // model
   y_train ~ beta(A, B);
 }

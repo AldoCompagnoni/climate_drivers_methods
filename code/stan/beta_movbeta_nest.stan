@@ -7,8 +7,20 @@ data {
 }
 
 transformed data {
-  real month[n_lag]; // vector of months, to create distance matrix
-  for(k in 1:n_lag) month[k] = k;
+  int m1[M];
+  int m2[M];
+  int m3[M];
+  real month[M];
+  
+  // month-year indices
+  for (i in 1:M) {
+    m1[i] = i;
+    m2[i] = i + M;
+    m3[i] = i + 2*M;
+  }
+  
+  // vector of months, to create distance matrix
+  for(m in 1:M) month[m] = m;
 }
 
 parameters {
@@ -18,6 +30,7 @@ parameters {
   real<lower=0> eta;  // maximum covariance for betas
   real<lower=0> rho;  // degree of temporal autocorrelation for betas
   vector[n_lag] z;    // unit normal prior for non-centered term
+  simplex[K] theta_y;
 }
 
 transformed parameters {
@@ -30,6 +43,7 @@ transformed parameters {
   // params for random beta
   vector[n_time] yhat;
   vector[n_lag] beta;
+  vector[M*K] beta_wt;
   matrix[n_lag,n_lag] sigma_beta; // covariance matrix
   matrix[n_lag,n_lag] L;     // cholesky of covariance matrix
   
@@ -40,8 +54,13 @@ transformed parameters {
   // non-centered parameterization for beta
   beta = mu_beta + L * z;
   
+  // apply yearly weights
+  beta_wt[m1] = theta_y[1] * beta;
+  beta_wt[m2] = theta_y[2] * beta;
+  beta_wt[m3] = theta_y[3] * beta;
+  
   // linear predictor
-  yhat = alpha + clim * beta;
+  yhat = alpha + clim * beta_wt;
   
   // beta reparameterization
   for(n in 1:n_time){

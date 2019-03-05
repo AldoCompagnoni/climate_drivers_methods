@@ -11,24 +11,29 @@ parameters {
   real<lower=0> y_sd;
   real mu_beta;
   real<lower=0> sigma_beta;
-  vector[n_lag] beta;
 }
 
 transformed parameters {
   vector[n_time] yhat;
+  vector[n_lag] beta;
+  
+  // non-centered parameterization
+  beta = mu_beta + sigma_beta * z;
   
   // linear predictor
   yhat = alpha + clim * beta;
 }
 
 model {
-  alpha ~ normal(0, 5);
-  y_sd ~ gamma(1, 1);
   
+  // hyper-parameters to weight climate effects
+  z ~ normal(0, 1);
   mu_beta ~ normal(0, 3);
   sigma_beta ~ normal(0, 3);
   
-  beta ~ normal(mu_beta, sigma_beta);
+  // parameters of data model
+  alpha ~ normal(0, 5);
+  y_sd ~ gamma(1, 1);
   
   y ~ normal(yhat, y_sd);
 }

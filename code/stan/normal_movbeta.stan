@@ -23,12 +23,12 @@ parameters {
 transformed parameters {
   vector[n_time] yhat;
   vector[n_lag] beta;
-  matrix[n_lag,n_lag] Sigma; // covariance matrix
+  matrix[n_lag,n_lag] sigma_beta; // covariance matrix
   matrix[n_lag,n_lag] L;     // cholesky of covariance matrix
   
   // covariance
-  Sigma = cov_exp_quad(month, eta, rho) + diag_matrix(rep_vector(0.001, n_lag));
-  L = cholesky_decompose(Sigma);
+  sigma_beta = cov_exp_quad(month, eta, rho) + diag_matrix(rep_vector(0.001, n_lag));
+  L = cholesky_decompose(sigma_beta);
   
   // non-centered parameterization for beta
   beta = mu_beta + L * z;
@@ -39,12 +39,12 @@ transformed parameters {
 
 model {
   
-  // priors
+  // Hyper-parameters to weight climate effects
   z ~ normal(0, 1);
-  
   rho ~ normal(0, 5);
   eta ~ normal(0, 1);
   
+  // parameters of data model
   alpha ~ normal(0, 5);
   mu_beta ~ normal(0, 5);
   y_sd ~ gamma(1, 1);

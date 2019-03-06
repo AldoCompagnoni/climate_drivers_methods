@@ -74,6 +74,14 @@ transformed parameters {
 }
 
 model {
+  
+  // hyper-parameters to weight climate effects
+  theta_y ~ dirichlet(rep_vector(1.0, K));
+  
+  // priors data model
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  
   // likelihood
   y ~ beta(A, B);
 }

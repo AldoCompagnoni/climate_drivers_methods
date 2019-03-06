@@ -58,16 +58,16 @@ transformed parameters {
 }
 
 model {
-  z ~ normal(0, 1);
   
+  
+  z ~ normal(0, 1);
   rho ~ normal(0, 5);
   eta ~ normal(0, 1);
+  theta_y ~ dirichlet(rep_vector(1.0, K));
   
   alpha ~ normal(0, 5);
   mu_beta ~ normal(0, 5);
   y_sd ~ normal(0, 3);
-  
-  theta_y ~ dirichlet(rep_vector(1.0, K));
   
   y ~ normal(yhat, y_sd);
 }

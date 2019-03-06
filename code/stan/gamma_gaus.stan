@@ -6,22 +6,18 @@ functions {
 }
 
 data {
-  
   int n_time;
   int n_lag;
   vector<lower=0>[n_time] y;
   matrix[n_time, n_lag] clim;
-  
 }
 
 parameters {
-  
   real<lower=0,upper=n_lag> sens_mu;
-  real<lower=0,upper=n_lag/2> sens_sd;
+  real<lower=1> sens_sd;
   real alpha;
   real beta;
   real<lower=0> y_sd;
-  
 }
 
 transformed parameters{
@@ -39,9 +35,17 @@ transformed parameters{
 }
 
 model {
-  
   // place holder  
-  vector[n_time] mu;    // transformed linear predictor for mean of beta distribution
+  vector[n_time] mu; // transf. lin. pred. for mean
+  
+  // hyper-parameters to weight climate effects
+  sens_sd ~ normal(0.5, 12);
+  sens_mu ~ normal(6.5, 12);
+  
+  // parameters of data model
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1); 
   
   // likelihood
   for(n in 1:n_time)

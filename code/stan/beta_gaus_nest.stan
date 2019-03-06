@@ -58,13 +58,15 @@ transformed parameters {
 
 model {
   
-  // priors
-  alpha ~ normal(0,1);
-  beta  ~ normal(0,1);
-  y_sd  ~ gamma(1,1);
+  // hyper-parameters to weight climate effects
   sens_sd ~ normal(0.5, 12);
   sens_mu ~ normal(6.5, 12);
   theta_y ~ dirichlet(rep_vector(1.0, K));
+  
+  // parameters of data model
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1);
   
   // likelihood
   y ~ beta(A, B);

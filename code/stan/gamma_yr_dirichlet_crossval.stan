@@ -25,7 +25,7 @@ transformed parameters {
 
 model {
   // place holder  
-  vector[n_train] mu;    // transformed linear predictor for mean of beta distribution
+  vector[n_train] mu; // transf. lin. pred. for mean
   
   // likelihood
   for(n in 1:n_train)

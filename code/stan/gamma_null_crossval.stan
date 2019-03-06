@@ -13,10 +13,13 @@ parameters {
 }
 
 model {
-  
   // place holder  
-  vector[n_train] mu;    // transformed linear predictor for mean of beta distribution
-
+  vector[n_time] mu; // transf. lin. pred. for mean
+  
+  // parameters of data model
+  alpha ~ normal(0,1);
+  y_sd  ~ gamma(1,1);
+  
   // model
   for(n in 1:n_train){
     mu[n] = exp( alpha );

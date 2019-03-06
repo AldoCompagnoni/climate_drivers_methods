@@ -13,9 +13,13 @@ parameters {
 
 model {
   // place holder  
-  vector[n_time] mu;    // transformed linear predictor for mean of beta distribution
+  vector[n_time] mu; // transf. lin. pred. for mean
   
-  // likelihood
+  // parameters of data model
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1); 
+
   for(n in 1:n_time)
     mu[n] = exp(alpha + clim_means[n] * beta);
     

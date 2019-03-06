@@ -6,13 +6,17 @@ data {
 
 parameters {
   real alpha;
-  real<lower=0.1> y_sd;       // Flower-to-fruit overdispersion parameter
+  real<lower=0.1> y_sd;
 }
 
 model {
   
   // place holder  
-  vector[n_time] mu;    // transformed linear predictor for mean of beta distribution
+  vector[n_time] mu; // transf. lin. pred. for mean
+  
+  // priors
+  alpha ~ normal(0,1);
+  y_sd  ~ gamma(1,1); 
 
   // model
   for(n in 1:n_time){

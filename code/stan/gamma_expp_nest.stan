@@ -18,7 +18,7 @@ data {
 
 parameters {
   real<lower=0,upper=M> sens_mu;
-  real<lower=0,upper=M*2> sens_sd;
+  real<lower=0> sens_sd;
   simplex[K] theta_y;
   real alpha;
   real beta;
@@ -48,9 +48,18 @@ transformed parameters {
 
 model {
   // place holder  
-  vector[n_time] mu;    // transformed linear predictor for mean of beta distribution
+  vector[n_time] mu; // transf. lin. pred. for mean
   
-  // likelihood
+  // hyper-parameters to weight climate effects
+  sens_sd ~ normal(0.5, 12);
+  sens_mu ~ normal(6.5, 12);
+  theta_y ~ dirichlet(rep_vector(1.0, K));
+  
+  // parameters of data model
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1); 
+  
   for(n in 1:n_time)
     mu[n] = exp(alpha + x[n] * beta);
     

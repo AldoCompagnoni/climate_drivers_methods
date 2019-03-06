@@ -50,7 +50,6 @@ model {
   alpha ~ normal(0, 5);
   y_sd ~ gamma(1, 1);
   
-  
   y ~ beta(A, B);
 }
 
@@ -58,6 +57,6 @@ generated quantities {
   vector[n_time] log_lik;
   
   for (n in 1:n_time) {
-    log_lik[n] = beta_lpdf(y[n] | yhat[n], y_sd);
+    log_lik[n] = beta_lpdf(y[n] | A[n], B[n]);
   }
 }

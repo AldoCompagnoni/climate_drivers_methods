@@ -16,7 +16,12 @@ parameters {
 
 model{
   // place holder  
-  vector[n_train] mu;    // transformed linear predictor for mean of beta distribution
+  vector[n_time] mu; // transf. lin. pred. for mean
+  
+  // parameters of data model
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(1,1);
   
   // likelihood
   for(n in 1:n_train)

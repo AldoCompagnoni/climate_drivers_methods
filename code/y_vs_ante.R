@@ -1,4 +1,4 @@
-o# Read data
+# Read data
 # Read model results
 # plot spp. specific results
 rm(list=ls())
@@ -10,10 +10,11 @@ library(mgcv)
 library(testthat)
 library(rstan)
 library(evd)
+library(gridExtra)
 
 # climate predictor, response, months back, max. number of knots
 response  <- "log_lambda"
-clim_var  <- "airt"
+clim_var  <- "precip"
 m_back    <- 36    
 st_dev    <- FALSE
 
@@ -46,7 +47,7 @@ expp_beta     <- 20
 
 for(ii in 1:33){
   
-  # set species (I pick Sphaeraclea_coccinea)
+  # set species
   # ii            <- 33
   spp_name      <- spp[ii]
   
@@ -76,11 +77,11 @@ for(ii in 1:33){
   
   # model posterior
   post_all <- data.table::fread(paste0(mod_dir,'results/',clim_var,'/',
-                    grep(spp_name,sum_f_l,value=T))) %>% 
+                    grep(spp_name,sum_f_l,value=T))) #%>% 
               # get the means of each parameter
-              group_by( model ) %>% 
-              summarise_all( mean ) %>% 
-              ungroup
+              # group_by( model ) %>% 
+              # summarise_all( mean ) %>% 
+              # ungroup
   
   
   # Transform response variables (if needed) ------------------------------------------------------------------
@@ -157,22 +158,47 @@ for(ii in 1:33){
     m_back    <- 36    
     xx        <- 1:12
     xx_a      <- 1:36
+    slices    <- seq(1,6000,length.out=200) %>% round()
     
     # produce data frame to plot data
-    plotting_df <- function(x_ante,post_mean,mod_data){
+    plotting_df <- function(slices,x_ante,post_mean,mod_data){
       data.frame( y = mod_data$resp$log_lambda,
                   x = x_ante,
                   stringsAsFactors = F) %>% 
-        mutate( alpha = post_mean$alpha,
-                beta  = post_mean$beta )
+        mutate( alpha = post_mean$alpha[slices],
+                beta  = post_mean$beta[slices] )
     }
     
+    # produce means and posterior based on model
+    mean_post <- function(mod){
+      # assign objects to the parent environment
+      post_m    <<- post_all %>% subset(model == mod )
+      post_mean <<- post_m %>% 
+                    group_by( model ) %>% 
+                    summarise_all( mean ) %>% 
+                    ungroup
+    }
     
+    # quantiles of year weights
+    quant_ind_w <- function(post_in,vec){
+        
+        lapply(vec,
+               function(x) quantile(as.data.frame(post_in)[,x],
+                                    prob=c(0.025,0.5,0.975))
+              ) %>% 
+          do.call(rbind, .) %>% 
+          as.data.frame %>% 
+          tibble::add_column(.before=1, index=1:length(vec) ) %>% 
+          setNames( c('index','lwr','mid','upr') ) %>% 
+          mutate( index = as.character(index) )
+        
+    }
+  
     # plot model over data --------------------------------------------------------------
     if( grepl('yr', mod) ){
       
-      # mean params
-      post_mean <- post_all %>% subset(model == mod )
+      # load relevant params
+      mean_post( mod )
       
       # gaus
       if(mod=='yr1'){
@@ -187,30 +213,48 @@ for(ii in 1:33){
       
       # plotting material & plot data frame
       x_ante <- rowMeans(clim_sub)
-      pl_df  <- plotting_df(x_ante,post_mean,mod_data)
-      
+      pl_l   <- lapply(slices,plotting_df,
+                       x_ante,post_m,mod_data)
+      pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+     
+      w_v_l  <- NULL
+    
     }
     
     if(mod == 'gaus'){
       
-      # mean params
-      post_mean <- post_all %>% subset(model == mod )
+      # load relevant params
+      mean_post( mod )
       
-      # gaus
+      # x_antecedent means
       gaus_w_v  <- dnorm(xx_a, post_mean$sens_mu, 
                                post_mean$sens_sd )
-      w_v      <- gaus_w_v / sum(gaus_w_v)
+      w_v       <- gaus_w_v / sum(gaus_w_v)
       
-      # plotting material & plot data frame
+      # x_antecedent posterior
+      ante_post <- function(ii,post_in){
+        gaus_w_v  <- dnorm(xx_a, post_in$sens_mu[ii], 
+                                 post_in$sens_sd[ii] )      
+        (gaus_w_v / sum(gaus_w_v)) %>% 
+          as.data.frame %>% 
+          mutate( x = 1:length(gaus_w_v) ) %>% 
+          setNames( c('w','x') ) %>% select(x,w)
+      }
+      
+      # MEANS: plotting material
       x_ante <- as.matrix(mod_data$climate) %*% w_v
-      pl_df  <- plotting_df(x_ante,post_mean,mod_data)
+      pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+      
+      # posterior
+      pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data)
+      w_v_l  <- lapply(slices, ante_post, post_m)
       
     }
     
     if(mod == 'expp'){
       
-      # mean params
-      post_mean <- post_all %>% subset(model == mod )
+      # load relevant params
+      mean_post( mod )
       
       # gaus
       expp_w_v  <- dexppow(xx_a, post_mean$sens_mu, 
@@ -218,17 +262,75 @@ for(ii in 1:33){
                                  expp_beta)
       w_v       <- expp_w_v / sum(expp_w_v)
       
-      # plotting material & plot data frame
-      x_ante <- as.matrix(mod_data$climate) %*% w_v
-      pl_df  <- plotting_df(x_ante,post_mean,mod_data)
+      # x_antecedent posterior
+      ante_post <- function(ii, post_in){
+        gaus_w_v  <- dexppow(xx_a, post_in$sens_mu[ii], 
+                                   post_in$sens_sd[ii],
+                                   expp_beta)      
+        (gaus_w_v / sum(gaus_w_v)) %>% 
+          as.data.frame %>% 
+          mutate( x = 1:length(gaus_w_v) ) %>% 
+          setNames( c('w','x') ) %>% select(x,w)
+      }
       
+      # MEANS: plotting material
+      x_ante <- as.matrix(mod_data$climate) %*% w_v
+      pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+      
+      # posterior
+      pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data)
+      w_v_l  <- lapply(slices, ante_post, post_m)
+      
+    }
+    
+    # moving betas
+    if(mod %in% c('movb','movb_h') ){
+      
+      # load relevant params
+      mean_post( mod )
+      
+      # consider "mu beta" as "beta"
+      post_m    <- select(post_m,-beta) %>% rename(beta=mu_beta)
+      post_mean <- select(post_mean,-beta) %>% rename(beta=mu_beta)
+      
+      # # MEANS: plotting material
+      b_names <- paste0('beta_',1:36)
+      # x_ante  <- as.matrix(mod_data$climate) %*% as.numeric(post_mean[,b_names])
+      # pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+      # 
+      # # posterior
+      # pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data)
+      qnt_m  <- quant_ind_w(post_m,b_names)
+      
+    }
+      
+    # moving betas nested
+    if(mod %in% c('movb_n','movb_h_n') ){
+      
+      # load relevant params
+      mean_post( mod )
+      
+      # consider "mu beta" as "beta"
+      post_m    <- select(post_m,-beta) %>% rename(beta=mu_beta)
+      post_mean <- select(post_mean,-beta) %>% rename(beta=mu_beta)
+      
+      # # MEANS: plotting material
+      b_names <- paste0('beta_',1:12)
+      # x_ante  <- as.matrix(mod_data$climate) %*% as.numeric(post_mean[,b_names])
+      # pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+      # 
+      # # posterior
+      # pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data)
+      qnt_m  <- quant_ind_w(post_m,b_names)
+      qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
+        
     }
     
     # expp_n
     if(mod == 'expp_n'){
     
-      # post means
-      post_mean <- post_all %>% subset(model == mod )
+      # load relevant params
+      mean_post( mod )
       
       # expp
       expp_w_v <- dexppow(xx, post_mean$sens_mu, 
@@ -237,16 +339,34 @@ for(ii in 1:33){
                 ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_2),
                 ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_3) )
      
-      # plotting material & plot data frame
+      # x_antecedent posterior
+      ante_post <- function(ii, post_in){
+        expp_w_v  <- dexppow(xx, post_in$sens_mu[ii], 
+                                 post_in$sens_sd[ii],
+                                 expp_beta)
+        w_v <- (expp_w_v / sum(expp_w_v))
+        w_v %>% 
+          as.data.frame %>% 
+          mutate( x = 1:length(expp_w_v) ) %>% 
+          setNames( c('w','x') ) %>% select(x,w)
+      }
+      
+      
+      # MEANS: plotting material
       x_ante <- as.matrix(mod_data$climate) %*% w_v
-      pl_df  <- plotting_df(x_ante,post_mean,mod_data)
-          
+      pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+      
+      # posteriors 
+      pl_l   <- lapply(slices,plotting_df,x_ante,post_m,mod_data)
+      w_v_l  <- lapply(slices, ante_post, post_m)
+      qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
+      
     }
     
     if(mod == 'gaus_n'){
     
-      # let's start from SAD
-      post_mean <- post_all %>% subset(model == mod )
+      # load parameters and posterior
+      mean_post( mod )
       
       # expp
       expp_w_v <- dnorm(xx, post_mean$sens_mu, 
@@ -255,16 +375,32 @@ for(ii in 1:33){
                 ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_2),
                 ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_3) )
      
+      # posterior of antecedent
+      ante_post <- function(ii, post_in){
+        gaus_w_v  <- dnorm(xx, post_in$sens_mu[ii], 
+                               post_in$sens_sd[ii] )
+        w_v <- (gaus_w_v / sum(gaus_w_v))
+        w_v %>% 
+          as.data.frame %>% 
+          mutate( x = 1:length(xx) ) %>% 
+          setNames( c('w','x') ) %>% select(x,w)
+      }
+      
       # plotting material & plot data frame
       x_ante <- as.matrix(mod_data$climate) %*% w_v
-      pl_df  <- plotting_df(x_ante,post_mean,mod_data)
-          
+      pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+        
+      # posteriors 
+      pl_l   <- lapply(slices, plotting_df,x_ante,post_m,mod_data)
+      w_v_l  <- lapply(slices, ante_post, post_m)
+      qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
+        
     }
     
     if(mod == 'simpl_n'){
       
       # means
-      post_mean <- post_all %>% subset(model == mod )
+      mean_post( mod )
       
       # x antecedent
       w_v    <- c(as.numeric(post_mean[paste0('theta_m_',1:12)]*post_mean$theta_y_1),
@@ -273,33 +409,140 @@ for(ii in 1:33){
       
       # plotting material & plot data frame
       x_ante <- as.matrix(mod_data$climate) %*% w_v
-      pl_df  <- plotting_df(x_ante,post_mean,mod_data)
+      pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+      
+      # posteriors 
+      pl_l   <- lapply(slices, plotting_df,x_ante,post_m,mod_data)
+      qnt_m  <- quant_ind_w(post_m, paste0('theta_m_',1:12))
+      qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
       
     }
     
     # plot it out
     clim_var_print <- gsub('ip','',clim_var)
     
-    # plot it out
-    ggplot(pl_df, aes(x, y) ) +
-      geom_point() + 
-      geom_abline( intercept = unique(pl_df$alpha), 
-                   slope     = unique(pl_df$beta) ) + 
-      ylab( expression('log('*lambda*')') ) +
-      xlab( 'X antecedent' ) + 
-      ggtitle( spp_name ) +
-      ggsave( paste0('results/y_vs_ante/',
-                     clim_var_print,'/',
-                     spp_name,'_',
-                     mod,'.tiff'),
-              width = 6.3, height = 5,
-              compression="lzw")
-  
+    # plot one: y_vs_x ----------------------------------
+    if( mod %in% c('movb',  'movb_h',
+                   'movb_n','movb_h_n')){
+      
+      y_x <-  grid::textGrob('NA')
+      
+    }else{
+      p1 <- ggplot(pl_l[[1]], aes(x, y) ) +
+              geom_point() +
+              geom_abline( intercept = unique(pl_l[[1]]$alpha),
+                           slope     = unique(pl_l[[1]]$beta),
+                           color     = 'grey') +
+              ylab( expression('log('*lambda*')') ) +
+              xlab( 'X antecedent' ) + 
+              ggtitle( spp_name )  
+        
+      for(ii in 2:200){
+        p1 <- p1 + 
+              geom_abline( intercept = unique(pl_l[[ii]]$alpha), 
+                           slope     = unique(pl_l[[ii]]$beta),
+                           color     = 'grey',
+                           alpha     = 0.7)
+      }
+        
+      # y vs. antecedent
+      y_x <- p1  + 
+              geom_abline( data = pl_df, 
+                           aes( intercept = unique(pl_df$alpha),
+                                slope     = unique(pl_df$beta) ), 
+                                size      = 0.8 ) +
+              geom_point( aes(x=x, y=y) ) 
+    }
+    
+    # plot month weights/betas -----------------------------
+    
+    if( mod %in% c('gaus','expp','gaus_n','expp_n') ){
+      
+      # initiate weights plot
+      p2 <- ggplot(data = w_v_l[[1]],
+                   aes(x=x, y=w) ) +
+              geom_line( color = 'grey',
+                         alpha = 0.7 )
+        
+      for(ii in 2:200){
+        p2 <- p2 +
+              geom_line(data=w_v_l[[ii]],
+                        aes( x=x, y=w),
+                        color = 'grey',
+                        alpha = 0.7 )
+      }
+      
+      mw_p <- p2
+      
+    }
+    
+    if( mod %in% c('simpl_n') ){
+      
+      mw_p <- ggplot(qnt_m) +
+              geom_pointrange(aes(x=index,
+                                  y=mid,
+                                  ymin=lwr,
+                                  ymax=upr)) +
+              ylab('weight') +
+              xlab('month')  
+      
+    }
+    
+    if( mod %in% c('movb',  'movb_h',
+                   'movb_n','movb_h_n') ){
+      
+      mw_p <- ggplot(qnt_m) +
+              geom_pointrange(aes(x=index,
+                                  y=mid,
+                                  ymin=lwr,
+                                  ymax=upr)) +
+              geom_hline( yintercept=0,lty=2) +
+              ylab('beta') +
+              xlab('month') +
+              ggtitle( spp_name )
+      
+    }
+    
+    if( mod %in% paste0('yr',1:3) ){
+      mw_p <- grid::textGrob('NA')
+    }
+    
+    # plot year weights -----------------------------
+    
+    if( mod %in% c('gaus_n','expp_n','simpl_n',
+                   'movb_n','movb_h_n') ){
+    
+      yw_p <- ggplot(qnt_yr) +
+        coord_cartesian(ylim = c(0,1) ) + 
+        geom_pointrange(aes(x=index,
+                            y=mid,
+                            ymin=lwr,
+                            ymax=upr)) +
+        ylab('weight') +
+        xlab('year')
+        
+    }else{
+      yw_p <- textGrob('NA')
+    }
+    
+    
+    # plont year weights -------------------------------------
+    out_p <- grid.arrange(y_x,mw_p,yw_p,ncol=2)
+    ggsave(file = 
+           paste0('results/y_vs_ante/',
+                   clim_var_print,'/',
+                   spp_name,'_',
+                   mod,'.tiff'),
+          plot = out_p,
+          width = 6.3, height = 6.3,
+          compression="lzw")
+    
   }
   
-  lapply(c('yr1','yr2','yr3',
-           'gaus','expp',
-           'gaus_n','expp_n','simpl_n'),plot_spp)
+   lapply(c('movb_n','movb_h_n'),plot_spp)
+  # lapply(c('yr1','yr2','yr3',
+  #          'gaus','expp',
+  #          'gaus_n','expp_n','simpl_n'),plot_spp)
   print(ii)
   
 }

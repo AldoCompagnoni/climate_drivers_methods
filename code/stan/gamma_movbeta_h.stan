@@ -1,6 +1,6 @@
 
 data {
-  int n_time;
+  int<lower=0> n_time;
   int<lower=0> n_lag;       // number of monthly lags 
   vector[n_time] y;
   matrix[n_time,n_lag] clim;  // matrix of climate covariates
@@ -11,6 +11,7 @@ parameters {
   real<lower=0> y_sd;
   real mu_beta;
   real<lower=0> sigma_beta;
+  vector[n_lag] z;    // unit normal prior for non-centered term
 }
 
 transformed parameters {

@@ -32,7 +32,7 @@ transformed parameters{
   matrix[K,n_time] x_m;
   
   for(i in 1:M)
-    sens_m[i] = dnorm(i, sens_mu, sens_sd, expp_beta);
+    sens_m[i] = dnorm(i, sens_mu, sens_sd);
   
   sens_m = sens_m / sum(sens_m);
   

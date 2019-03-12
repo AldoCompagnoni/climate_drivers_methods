@@ -1,8 +1,10 @@
-
+  
 data {
   int n_time;
+  int M;        // number of months-within-years
+  int K;        // number of years
   vector[n_time] y;
-  matrix[n_time,n_lag] clim;  // matrix of climate covariates
+  matrix[n_time,M*K] clim;  // matrix of climate covariates
 }
 
 transformed data {
@@ -22,6 +24,7 @@ parameters {
   real<lower=0> y_sd;
   real mu_beta;
   real<lower=0> sigma_beta;
+  vector[M] z;   // unit normal prior for non-centered term
   simplex[K] theta_y;
 }
 
@@ -29,11 +32,11 @@ transformed parameters {
   
   // params for random beta
   vector[n_time] yhat;
-  vector[n_lag] beta;
+  vector[M] beta;
   vector[M*K] beta_wt;
   
   // non-centered parameterization for beta
-  beta = mu_beta + L * z;
+  beta = mu_beta + sigma_beta * z;
   
   // apply yearly weights
   beta_wt[m1] = theta_y[1] * beta;
@@ -41,7 +44,7 @@ transformed parameters {
   beta_wt[m3] = theta_y[3] * beta;
   
   // linear predictor
-  yhat = alpha + clim * beta;
+  yhat = alpha + clim * beta_wt;
   
   
 }

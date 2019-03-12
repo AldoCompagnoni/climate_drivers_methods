@@ -1,9 +1,10 @@
 
 data {
   int<lower=0> n_time;  // number of data points, length(y)
-  int<lower=0> n_lag;       // number of monthly lags
+  int M;              // number of months-within-years
+  int K;              // number of years
   vector[n_time] y;          // response
-  matrix[n_time,n_lag] clim;   // matrix of climate covariates
+  matrix[n_time,M*K] clim;   // matrix of climate covariates
 }
 
 transformed data {
@@ -29,7 +30,7 @@ parameters {
   real<lower=0> y_sd;
   real<lower=0> eta;  // maximum covariance for betas
   real<lower=0> rho;  // degree of temporal autocorrelation for betas
-  vector[n_lag] z;    // unit normal prior for non-centered term
+  vector[M] z;    // unit normal prior for non-centered term
   simplex[K] theta_y;
 }
 
@@ -44,8 +45,8 @@ transformed parameters {
   vector[n_time] yhat;
   vector[n_lag] beta;
   vector[M*K] beta_wt;
-  matrix[n_lag,n_lag] sigma_beta; // covariance matrix
-  matrix[n_lag,n_lag] L;     // cholesky of covariance matrix
+  matrix[M,M] sigma_beta; // covariance matrix
+  matrix[M,M] L;     // cholesky of covariance matrix
   
   // covariance
   sigma_beta = cov_exp_quad(month, eta, rho) + diag_matrix(rep_vector(0.001, n_lag));

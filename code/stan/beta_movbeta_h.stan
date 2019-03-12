@@ -11,6 +11,7 @@ parameters {
   real<lower=0> y_sd;
   real mu_beta;
   real<lower=0> sigma_beta;
+  vector[n_lag] z;    // unit normal prior for non-centered term
 }
 
 transformed parameters {

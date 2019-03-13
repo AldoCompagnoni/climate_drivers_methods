@@ -10,19 +10,26 @@ parameters {
   real<lower=0> y_sd;
 }
 
+transformed parameters {
+  // just to facilitate pipeline for plots
+  real yhat;
+  yhat = alpha;
+}
+
+
 model {
   
-  real m[n_time];
+  real mu[n_time];
   
   for(ny in 1:n_time){
-    m[ny] = alpha;
+    mu[ny] = alpha;
   }
   
   // prior
   y_sd  ~ gamma(1,1);
   
   // model
-  y ~ normal(m, y_sd);
+  y ~ normal(mu, y_sd);
 }
 
 generated quantities {

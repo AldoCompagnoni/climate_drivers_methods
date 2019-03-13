@@ -13,7 +13,7 @@ rstan_options( auto_write = TRUE )
 options( mc.cores = 4 )
 
 # climate predictor, response, months back, max. number of knots
-response  <- "log_lambda"
+response  <- "surv"
 clim_var  <- "precip"
 m_back    <- 36    
 st_dev    <- FALSE
@@ -122,7 +122,7 @@ sim_pars <- list(
   warmup = 1000, 
   iter = 4000, 
   thin = 2, 
-  chains = 4
+  chains = 1
 )
 
 # NULL model (model of the mean)
@@ -141,7 +141,7 @@ dat_stan$clim_means  <- rowMeans(mod_data$climate[,1:12 ])
 fit_yr1 <- stan(
   file = paste0("code/stan/",family,"_yr.stan"),
   data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd', 'log_lik'),
+  pars = c('alpha', 'beta', 'y_sd', 'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -154,7 +154,7 @@ dat_stan$clim_means  <- rowMeans(mod_data$climate[,13:24])
 fit_yr2 <- stan(
   file = paste0("code/stan/",family,"_yr.stan"),
   data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd', 'log_lik'),
+  pars = c('alpha', 'beta', 'y_sd', 'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -167,7 +167,7 @@ dat_stan$clim_means  <- rowMeans(mod_data$climate[,25:36])
 fit_yr3 <- stan(
   file = paste0("code/stan/",family,"_yr.stan"),
   data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd', 'log_lik'),
+  pars = c('alpha', 'beta', 'y_sd', 'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -180,7 +180,8 @@ dat_stan$clim_means  <- rowMeans(mod_data$climate)
 fit_gaus <- stan(
   file = paste0("code/stan/",family,"_gaus.stan"),
   data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 'log_lik'), #, 'log_lik'
+  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd',
+           'yhat',  'log_lik'), 
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -192,7 +193,8 @@ fit_gaus <- stan(
 fit_expp <- stan(
   file = paste0("code/stan/",family,"_expp.stan"),
   data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 'log_lik'), #'log_lik'
+  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 
+           'y_sd', 'yhat', 'log_lik'), 
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -205,7 +207,8 @@ fit_mb_h <- stan(
   file = paste0("code/stan/",family,"_movbeta_h.stan"),
   data = dat_stan,
   pars = c('alpha', 'beta', 'y_sd', 
-           'mu_beta', 'sigma_beta', 'log_lik'),
+           'mu_beta', 'sigma_beta', 
+           'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -217,8 +220,8 @@ fit_mb_h <- stan(
 fit_mb <- stan(
   file = paste0("code/stan/",family,"_movbeta.stan"),
   data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd', 
-           'mu_beta', 'log_lik'),
+  pars = c('alpha',   'beta',  'y_sd', 'mu_beta', 
+           'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -230,8 +233,9 @@ fit_mb <- stan(
 fit_mb_h_nest <- stan(
   file = paste0("code/stan/",family,"_movbeta_h_nest.stan"),
   data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd', 'mu_beta', 'sigma_beta', 'log_lik',
-           'theta_y'),
+  pars = c('alpha', 'beta', 'y_sd', 
+           'mu_beta', 'sigma_beta', 'theta_y',
+           'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -243,8 +247,9 @@ fit_mb_h_nest <- stan(
 fit_mb_nest <- stan(
   file = paste0("code/stan/",family,"_movbeta_nest.stan"),
   data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd', 'mu_beta', 
-           'theta_y', 'log_lik'),
+  pars = c('alpha', 'beta', 'y_sd',
+           'mu_beta', 'theta_y', 
+           'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -259,23 +264,12 @@ dat_stan$clim1        <- t(mod_data$climate)[1:12 ,]
 dat_stan$clim2        <- t(mod_data$climate)[13:24,]
 dat_stan$clim3        <- t(mod_data$climate)[25:36,]
 
-# Simplex nested
-fit_24_nest <- stan(
-  file = paste0("code/stan/",family,"_dirichlet_nest.stan"),
-  data = dat_stan,
-  pars = c('theta_y', 'theta_m', 'alpha', 'beta', 'y_sd', 'log_lik'),
-  warmup = sim_pars$warmup,
-  iter = sim_pars$iter,
-  thin = sim_pars$thin,
-  chains = sim_pars$chains,
-  control = list(adapt_delta = 0.99)
-)
-
 # Generalized Extreme Value nested
 fit_gaus_nest <- stan(
   file = paste0("code/stan/",family,"_gaus_nest.stan"),
   data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd', 'log_lik'),
+  pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd', 
+           'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -287,7 +281,8 @@ fit_gaus_nest <- stan(
 fit_expp_nest <- stan(
   file = paste0("code/stan/",family,"_expp_nest.stan"),
   data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd', 'log_lik'),
+  pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd', 
+           'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -295,6 +290,18 @@ fit_expp_nest <- stan(
   control = list(adapt_delta = 0.99)
 )
 
+# Simplex nested
+fit_24_nest <- stan(
+  file = paste0("code/stan/",family,"_dirichlet_nest.stan"),
+  data = dat_stan,
+  pars = c('theta_y', 'theta_m', 'alpha', 'beta', 'y_sd', 
+           'yhat', 'log_lik'),
+  warmup = sim_pars$warmup,
+  iter = sim_pars$iter,
+  thin = sim_pars$thin,
+  chains = sim_pars$chains,
+  control = list(adapt_delta = 0.99)
+)
 
 
 # parameter values and diagnostics ----------------------------------------------------------------
@@ -408,3 +415,4 @@ write.csv(posteriors, paste0('results/',clim_var, "/posterior_",spp_name,".csv")
 # write.csv(cxval_pred, paste0('results/',clim_var, "/crossval_pred_diag_",spp_name,".csv"), row.names = F)
 
 }
+

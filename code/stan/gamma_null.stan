@@ -9,20 +9,22 @@ parameters {
   real<lower=0.1> y_sd;
 }
 
-model {
-  
+transformed parameters{
   // place holder  
-  vector[n_time] mu; // transf. lin. pred. for mean
+  real yhat; // transf. lin. pred. for mean
+
+  yhat = exp( alpha );
+
+}
+
+
+model {
   
   // priors
   alpha ~ normal(0,1);
   y_sd  ~ gamma(1,1); 
 
-  // model
-  for(n in 1:n_time){
-    mu[n] = exp( alpha );
-  }
-  y ~ gamma(y_sd, (y_sd ./ mu) );
+  y ~ gamma(y_sd, (y_sd ./ yhat) );
   
 }
 

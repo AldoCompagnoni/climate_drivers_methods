@@ -25,18 +25,20 @@ transformed parameters{
   // transformed parameters for moving window
   vector[n_time] x;
   row_vector[n_lag] sens;
+  vector[n_time] yhat;
   
   for(i in 1:n_lag) { sens[i] = dnorm(i, sens_mu, sens_sd); }
   
   sens = sens / sum(sens);
   
-  for(n in 1:n_time){ x[n] = sum(sens .* row(clim, n)); }
+  for(n in 1:n_time)
+    x[n] = sum(sens .* row(clim, n));
+    
+  yhat = exp(alpha + x * beta);
     
 }
 
 model {
-  // place holder  
-  vector[n_time] mu; // transf. lin. pred. for mean
   
   // hyper-parameters to weight climate effects
   sens_sd ~ normal(0.5, 12);
@@ -47,11 +49,7 @@ model {
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1); 
   
-  // likelihood
-  for(n in 1:n_time)
-    mu[n] = exp(alpha + x[n] * beta);
-    
-  y ~ gamma(y_sd, y_sd ./ mu);
+  y ~ gamma(y_sd, y_sd ./ yhat);
   
 }
 

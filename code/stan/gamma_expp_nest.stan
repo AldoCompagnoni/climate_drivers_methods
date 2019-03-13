@@ -27,6 +27,7 @@ parameters {
 
 transformed parameters {
   vector[n_time] x;
+  vector[n_time] yhat;
   vector[M] sens_m;
   matrix[K,n_time] x_m;
   
@@ -44,12 +45,11 @@ transformed parameters {
   for(i in 1:n_time)
     x[i] = sum(theta_y .* x_m[,i]);
 
+  yhat = exp(alpha + x * beta);
+
 }
 
 model {
-  // place holder  
-  vector[n_time] mu; // transf. lin. pred. for mean
-  
   // hyper-parameters to weight climate effects
   sens_sd ~ normal(0.5, 12);
   sens_mu ~ normal(6.5, 12);
@@ -60,15 +60,12 @@ model {
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1); 
   
-  for(n in 1:n_time)
-    mu[n] = exp(alpha + x[n] * beta);
-    
-  y ~ gamma(y_sd, y_sd ./ mu);
+  y ~ gamma(y_sd, y_sd ./ yhat);
 }
 
 generated quantities {
   vector[n_time] log_lik;
   
   for (n in 1:n_time)
-    log_lik[n] = gamma_lpdf(y[n] | y_sd, (y_sd / exp(alpha + x[n] * beta)) );
+    log_lik[n] = gamma_lpdf(y[n] | y_sd, (y_sd / yhat[n]) );
 }

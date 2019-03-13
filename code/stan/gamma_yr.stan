@@ -11,19 +11,22 @@ parameters {
   real<lower=0> y_sd;
 }
 
-model {
+transformed parameters {
   // place holder  
-  vector[n_time] mu; // transf. lin. pred. for mean
+  vector[n_time] yhat; // transf. lin. pred. for mean
   
+  yhat = exp(alpha + clim_means * beta);
+  
+}
+
+
+model {
   // parameters of data model
   alpha ~ normal(0,1);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1); 
 
-  for(n in 1:n_time)
-    mu[n] = exp(alpha + clim_means[n] * beta);
-    
-  y ~ gamma(y_sd, y_sd ./ mu);
+  y ~ gamma(y_sd, y_sd ./ yhat);
 }
 
 generated quantities {

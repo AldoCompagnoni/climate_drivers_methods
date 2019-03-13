@@ -56,14 +56,11 @@ transformed parameters {
   beta_wt[m3] = theta_y[3] * beta;
   
   // linear predictor
-  yhat = alpha + clim * beta_wt;
+  yhat = exp(alpha + clim * beta_wt);
   
 }
 
 model {
-  // place holder  
-  vector[n_time] mu; // transf. lin. pred. for mean
-  
   // hyper-parameters to weight climate effects
   z ~ normal(0, 1);
   rho ~ normal(0, 5);
@@ -75,15 +72,12 @@ model {
   mu_beta ~ normal(0, 5);
   y_sd ~ gamma(1,1); 
 
-  for(n in 1:n_time)
-    mu[n] = exp(yhat[n]);
-    
-  y ~ gamma(y_sd, y_sd ./ mu);
+  y ~ gamma(y_sd, y_sd ./ yhat);
 }
 
 generated quantities {
   vector[n_time] log_lik;
   
   for (n in 1:n_time)
-    log_lik[n] = gamma_lpdf(y[n] | y_sd, (y_sd / exp(yhat[n])) );
+    log_lik[n] = gamma_lpdf(y[n] | y_sd, (y_sd / yhat[n]) );
 }

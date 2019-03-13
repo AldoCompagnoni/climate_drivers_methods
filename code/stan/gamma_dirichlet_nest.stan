@@ -18,23 +18,24 @@ parameters {
 }
 
 transformed parameters {
-  matrix[K,n_time] x_m;
   vector[n_time] x;
+  vector[n_time] yhat;
+  matrix[K,n_time] x_m;
   
   for(i in 1:n_time){
     x_m[1,i] = sum(theta_m .* clim1[,i]); 
     x_m[2,i] = sum(theta_m .* clim2[,i]);
-    x_m[3,i] = sum(theta_m .* clim2[,i]);
+    x_m[3,i] = sum(theta_m .* clim3[,i]);
   }
   
   for(i in 1:n_time)
     x[i] = sum(theta_y .* x_m[,i]);
+    
+  yhat = exp(alpha + x * beta);
+  
 }
 
 model {
-  // place holder  
-  vector[n_time] mu; // transf. lin. pred. for mean
-
   // hyper-parameters to weight climate effects
   theta_y ~ dirichlet(rep_vector(1.0, K));
   theta_m ~ dirichlet(rep_vector(1.0, M));
@@ -44,16 +45,13 @@ model {
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1); 
   
-  // likelihood
-  for(n in 1:n_time)
-    mu[n] = exp(alpha + x[n] * beta);
-    
-  y ~ gamma(y_sd, y_sd ./ mu);
+  y ~ gamma(y_sd, y_sd ./ yhat);
+  
 }
 
 generated quantities {
   vector[n_time] log_lik;
   
   for (n in 1:n_time)
-    log_lik[n] = gamma_lpdf(y[n] | y_sd, (y_sd / exp(alpha + x[n] * beta)) );
+    log_lik[n] = gamma_lpdf(y[n] | y_sd, (y_sd / yhat[n]) );
 }

@@ -107,13 +107,23 @@ vr_by_mat_spp <- function(spp_compadre, comp_obj){
 }
 
 # get and format vital rates (add MatrixEndMonth by hand)
-pedio_vr <- vr_by_mat_spp('Pediocactus_bradyi', compadre) %>% 
-              mutate( MatrixEndMonth = 3 )
-astr_vr  <- vr_by_mat_spp('Astragalus_scaphoides_6', astr) %>% 
-              mutate( MatrixEndMonth = 6 )
-crypt_vr <- vr_by_mat_spp('Cryptantha_flava_2', crypt) %>% 
-              mutate( MatrixEndMonth = 5 ) %>% 
-              mutate( MatrixEndYear  = MatrixStartYear + 1 )
+pedio_vr  <- vr_by_mat_spp('Pediocactus_bradyi', compadre) %>% 
+               mutate( MatrixEndMonth = 3 )
+crypt_vr  <- vr_by_mat_spp('Cryptantha_flava_2', crypt) %>% 
+               mutate( MatrixEndMonth = 5 ) %>% 
+               mutate( MatrixEndYear  = MatrixStartYear + 1 )
+# Only use longest time series for Astragalus scaphoides
+astr_vr_l <- vr_by_mat_spp('Astragalus_scaphoides_6', astr) %>% 
+               mutate( MatrixEndMonth = 6 ) %>% 
+               subset( MatrixPopulation %in% c('McDevitt Creek', 
+                                               'Sheep Corral Gulch') ) %>% 
+               mutate( SpeciesAuthor = 'Astragalus_scaphoides_6_long' )
+# Only use most replicated (but shorter) time series for Astragalus scaphoides
+astr_vr_w <- vr_by_mat_spp('Astragalus_scaphoides_6', astr) %>% 
+               mutate( MatrixEndMonth = 6 ) %>% 
+               # only retain years for which there are 4 sites
+               subset( MatrixStartYear %in% paste0(2003:2013) ) %>% 
+               mutate( SpeciesAuthor = 'Astragalus_scaphoides_6_site_rep' )
 
 
 # harmonize results with all_demog_6tr.csv ------------------------------------
@@ -130,7 +140,8 @@ new_vr %>%
 
 # put it all together!
 new_vr   <- list( pedio_vr,
-                  astr_vr,
+                  astr_vr_l,
+                  astr_vr_w,
                   crypt_vr) %>% 
               # convert everything to character
               lapply(all_t0_char) %>% 

@@ -241,8 +241,28 @@ all_tmean   <- bind_rows( subset(all_1979_80, variable == 'tmean'),
 
 all_prism   <- bind_rows( all_ppt, all_tmean )
 
+
+# "split" astragalus scaphoides in two "species": one with all temporal reps.
+# one with all spatial reps (but less temporal reps.)
+# Astragalus_scaphoides: all sites (but not all years)
+prism_astr  <- all_prism %>% 
+                  mutate( SpeciesAuthor = replace(SpeciesAuthor,
+                                                  SpeciesAuthor == 'Astragalus_scaphoides_6',
+                                                  'Astragalus_scaphoides_6_site_rep') 
+                         )
+
+# Astragalus_scaphoides: all years (but not all sites)
+astr_long   <- prism_astr %>% 
+                  subset( MatrixPopulation %in% c('McDevitt Creek', 
+                                                  'Sheep Corral Gulch') ) %>% 
+                  mutate( SpeciesAuthor = 'Astragalus_scaphoides_6_long' )
+
+
+prism_out   <- bind_rows(prism_astr, astr_long) %>% 
+                  arrange(variable,year,month,SpeciesAuthor)
+
 # read PRISM climate data
-write.csv( all_prism,
+write.csv( prism_out,
            'data/climate/prism_astragalus_cryptantha_pediocactus.csv',
            row.names=F)
 

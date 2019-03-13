@@ -25,19 +25,20 @@ conv_plot_coord <- function(lat_in, lon_in, from_unit){
 # cryptantha
 crypta_lat_lon <- compadre$metadata %>% 
                     subset( grepl('Cryptantha',SpeciesAuthor) ) %>% 
-                    select( SpeciesAuthor, MatrixPopulation, Lat, Lon ) %>% 
-                    unique
+                    dplyr::select( SpeciesAuthor, MatrixPopulation, Lat, Lon ) %>% 
+                    unique %>% 
+                    mutate( SpeciesAuthor = 'Cryptantha_flava_2')
 
 # Astragalus
 astr_lat_lon   <- astraga$metadata %>% 
-                    select(SpeciesAuthor, MatrixPopulation, Lat, Lon ) %>% 
+                    dplyr::select(SpeciesAuthor, MatrixPopulation, Lat, Lon ) %>% 
                     unique()
 
 
 # periocactus 
 pedio  <- compadre$metadata %>% 
             subset( SpeciesAuthor == 'Pediocactus_bradyi' ) %>% 
-            select(SpeciesAuthor, MatrixPopulation, MatrixStartYear,
+            dplyr::select(SpeciesAuthor, MatrixPopulation, MatrixStartYear,
                    MatrixComposite, Lat, Lon ) %>% 
             mutate( Lat = replace(Lat,
                                   SpeciesAuthor == 'Pediocactus_bradyi',
@@ -53,7 +54,7 @@ pedio  <- compadre$metadata %>%
 
 pedio_lat_lon <- pedio %>% 
                    subset( MatrixComposite == 'Individual' ) %>% 
-                   select(SpeciesAuthor, MatrixPopulation, Lat, Lon) %>% 
+                   dplyr::select(SpeciesAuthor, MatrixPopulation, Lat, Lon) %>% 
                    unique
 
 

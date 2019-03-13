@@ -106,10 +106,13 @@ vr_by_mat_spp <- function(spp_compadre, comp_obj){
   
 }
 
-# get and format vital rates
-pedio_vr <- vr_by_mat_spp('Pediocactus_bradyi', compadre)
-astr_vr  <- vr_by_mat_spp('Astragalus_scaphoides_6', astr)
-crypt_vr <- vr_by_mat_spp('Cryptantha_flava_2', crypt)
+# get and format vital rates (add MatrixEndMonth by hand)
+pedio_vr <- vr_by_mat_spp('Pediocactus_bradyi', compadre) %>% 
+              mutate( MatrixEndMonth = 3 )
+astr_vr  <- vr_by_mat_spp('Astragalus_scaphoides_6', astr) %>% 
+              mutate( MatrixEndMonth = 6 )
+crypt_vr <- vr_by_mat_spp('Cryptantha_flava_2', crypt) %>% 
+              mutate( MatrixEndMonth = 5 )
 
 
 # harmonize results with all_demog_6tr.csv ------------------------------------

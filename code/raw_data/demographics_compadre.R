@@ -123,6 +123,10 @@ all_t0_char <- function(input_df){
              stringsAsFactors=FALSE)
 }
 
+new_vr %>% 
+  subset( SpeciesAuthor == 'Pediocactus_bradyi') %>% 
+  .$lambda
+
 # put it all together!
 new_vr   <- list( pedio_vr,
                   astr_vr,
@@ -136,6 +140,11 @@ new_vr   <- list( pedio_vr,
                       shri = RetrogressionSSD,
                       fec  = ReproductionSSD,
                       clo  = ClonalitySSD ) %>% 
+              # add log_lambda
+              mutate( lambda     = as.numeric(lambda) ) %>%
+              mutate( log_lambda = log(lambda) ) %>%
+              mutate( lambda     = as.character(lambda),
+                      log_lambda = as.character(log_lambda) ) %>%
               # remove NAs in Pediocactus
               subset( !is.na(lambda) )
 

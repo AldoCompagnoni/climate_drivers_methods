@@ -30,7 +30,7 @@ transformed parameters {
   for(i in 1:n_time){
     x_m[1,i] = sum(theta_m .* clim1[,i]); 
     x_m[2,i] = sum(theta_m .* clim2[,i]);
-    x_m[3,i] = sum(theta_m .* clim2[,i]);
+    x_m[3,i] = sum(theta_m .* clim3[,i]);
   }
   
   for(i in 1:n_time)

@@ -25,7 +25,7 @@ site_meta  <- read.csv('data/coord_extra_climate.csv',
 
 # what do I need from CHELSA?
 prism_df <- expand.grid( variable  = c('ppt','tmean'),
-                          year     = c(1981:2013),
+                          year     = c(1981:2014),
                           month    = c(paste0('0',1:9),paste0(10:12)),
                           stringsAsFactors = F) %>% 
                 arrange(variable,year,month)
@@ -117,9 +117,6 @@ for(ii in 1:length(file_links_good)){
 # # check that all file links actually exist
 # check_links <- sapply(1:20,check_links)
 
-climate_all <- lapply(1:length(file_links_good), 
-                      extract_year_month)
-
 # put it all in one data frame
 climate_df <- climate_all %>% bind_rows()
 
@@ -138,8 +135,8 @@ expect_true( all(prism_df$month == test_df$month) )
 
 # store the data frame!
 write.csv(climate_df,
-         'data/climate/1_792_prism.csv',
-         row.names=F)
+          'data/climate/1_816_prism.csv',
+          row.names=F)
 
 
 # Download PRISM YEARLY data for the coordinates ---------------------------------------
@@ -229,7 +226,7 @@ all_1979_80 <- lapply(1:nrow(prism_df), extract_year) %>%
                           month = as.numeric(month) )
 
 # all 1981 on 
-all_1981    <- read.csv('data/climate/1_792_prism.csv',
+all_1981    <- read.csv('data/climate/1_816_prism.csv',
                         stringsAsFactors = F)
 
 # combine datasets
@@ -296,7 +293,7 @@ prec_df   <- data.table::fread('data/precip_chelsa_hays.csv')
 day_one   <- as.Date( paste0("1/1/", 1979), format="%d/%m/%Y" ) 
 
 # ~ total number of days in 1979-2013 range
-tot_days  <- (2014-1979)*366
+tot_days  <- (2015-1979)*366
 
 # Hays species (Dalgleish et al. 2010)
 hays_spp  <- c("Cirsium_undulatum", "Echinacea_angustifolia", 
@@ -310,7 +307,7 @@ clim_fr   <- as.Date(1:tot_days, day_one-1) %>%
                 as.character %>%
                 as.data.frame(stringsAsFactors=F) %>%
                 separate_(col=".",into=c("year","month","day"),sep="-") %>%
-                subset( year != '2014' ) %>% 
+                subset( year != '2015' ) %>% 
                 mutate( year  = as.numeric(year),
                         month = as.numeric(month),
                         day   = as.numeric(day) ) %>% 
@@ -337,7 +334,6 @@ prec_out <- bind_rows( prec_df,
                        dplyr::select(clim_fr, -airt) ) %>% 
                 arrange(species, population, year, day)
 
-
 # finally put it out
-write.csv(airt_out,'data/airt_chelsa_prism_hays.csv',  row.names=F)
-write.csv(prec_out,'data/precip_chelsa_prism_hays.csv',row.names=F)
+write.csv(airt_out,'data/airt_chelsa_prism_hays_2014.csv',  row.names=F)
+write.csv(prec_out,'data/precip_chelsa_prism_hays_2014.csv',row.names=F)

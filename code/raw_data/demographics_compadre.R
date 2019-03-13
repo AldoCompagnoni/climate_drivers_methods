@@ -112,7 +112,8 @@ pedio_vr <- vr_by_mat_spp('Pediocactus_bradyi', compadre) %>%
 astr_vr  <- vr_by_mat_spp('Astragalus_scaphoides_6', astr) %>% 
               mutate( MatrixEndMonth = 6 )
 crypt_vr <- vr_by_mat_spp('Cryptantha_flava_2', crypt) %>% 
-              mutate( MatrixEndMonth = 5 )
+              mutate( MatrixEndMonth = 5 ) %>% 
+              mutate( MatrixEndYear  = MatrixStartYear + 1 )
 
 
 # harmonize results with all_demog_6tr.csv ------------------------------------

@@ -28,6 +28,7 @@ transformed parameters {
   vector[n_time] x;
   vector[M] sens_m;
   matrix[K,n_time] x_m;
+  vector[n_time] yhat;
   
   for(i in 1:M)
     sens_m[i] = dnorm(i, sens_mu, sens_sd);
@@ -43,6 +44,8 @@ transformed parameters {
   for(i in 1:n_time)
     x[i] = sum(theta_y .* x_m[,i]);
 
+  yhat = alpha + beta * x;
+
 }
 
 model {
@@ -54,7 +57,7 @@ model {
   sens_mu ~ normal(6.5, 12);
  
   // model
-  y ~ normal(alpha + beta * x, y_sd);
+  y ~ normal(yhat, y_sd);
 }
 
 generated quantities {

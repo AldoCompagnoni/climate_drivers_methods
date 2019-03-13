@@ -14,14 +14,14 @@ parameters {
 transformed parameters {
   
   // transformed parameters for beta binomial regression
-  real<lower=0,upper=1> mu[n_time]; // transformed linear predictor for mean of beta distribution
+  real<lower=0,upper=1> yhat[n_time]; // transformed linear predictor for mean of beta distribution
   real<lower=0> A[n_time];          // parameter for beta distn
   real<lower=0> B[n_time];          // parameter for beta distn
 
   for(n in 1:n_time){
-    mu[n]  = inv_logit(alpha + clim_means[n] * beta);
-    A[n]   = mu[n] * y_sd;
-    B[n]   = (1.0 - mu[n]) * y_sd;
+    yhat[n] = inv_logit(alpha + clim_means[n] * beta);
+    A[n]    = yhat[n] * y_sd;
+    B[n]    = (1.0 - yhat[n]) * y_sd;
   }
 }
 

@@ -29,6 +29,7 @@ transformed parameters {
   vector[n_time] x;
   vector[M] sens_m;
   matrix[K,n_time] x_m;
+  vector[n_time] yhat;
   
   for(i in 1:M)
     sens_m[i] = dexppow(i, sens_mu, sens_sd, expp_beta);
@@ -44,6 +45,8 @@ transformed parameters {
   for(i in 1:n_time)
     x[i] = sum(theta_y .* x_m[,i]);
 
+  yhat = alpha + beta * x;
+  
 }
 
 model {
@@ -57,13 +60,13 @@ model {
   theta_y ~ dirichlet(rep_vector(1.0, K));
   
   // model
-  y ~ normal(alpha + beta * x, y_sd);
+  y ~ normal(yhat, y_sd);
 }
 
 generated quantities {
   vector[n_time] log_lik;
 
   for (n in 1:n_time)
-    log_lik[n] = normal_lpdf(y[n] | alpha + beta * x[n], y_sd);
+    log_lik[n] = normal_lpdf(y[n] | yhat[n], y_sd);
 }
 

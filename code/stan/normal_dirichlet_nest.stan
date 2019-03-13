@@ -20,6 +20,7 @@ parameters {
 transformed parameters {
   matrix[K,n_time] x_m;
   vector[n_time] x;
+  vector[n_time] yhat;
   
   for(i in 1:n_time){
     x_m[1,i] = sum(theta_m .* clim1[,i]); 
@@ -29,6 +30,9 @@ transformed parameters {
   
   for(i in 1:n_time)
     x[i] = sum(theta_y .* x_m[,i]);
+    
+  yhat = alpha + beta * x;
+  
 }
 
 model {
@@ -41,7 +45,7 @@ model {
   theta_m ~ dirichlet(rep_vector(1.0, M));
 
   // model
-  y ~ normal(alpha + beta * x, y_sd);
+  y ~ normal(yhat, y_sd);
 }
 
 generated quantities {

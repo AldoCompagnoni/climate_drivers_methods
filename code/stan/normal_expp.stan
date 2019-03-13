@@ -24,6 +24,7 @@ parameters {
 transformed parameters {
   vector[n_time] x;
   row_vector[n_lag] sens;
+  vector[n_time] yhat;
   
   for(i in 1:n_lag)
     sens[i] = dexppow(i, sens_mu, sens_sd, expp_beta);
@@ -32,6 +33,9 @@ transformed parameters {
   
   for(i in 1:n_time)
     x[i] = sum(sens .* row(clim, i));
+    
+  yhat = alpha + beta * x;  
+  
 }
 
 model {
@@ -43,7 +47,7 @@ model {
   sens_mu ~ normal(18.5, 36);
 
   // model
-  y ~ normal(alpha + beta * x, y_sd);
+  y ~ normal(yhat, y_sd);
 }
 
 generated quantities {

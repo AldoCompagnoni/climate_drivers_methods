@@ -37,19 +37,19 @@ parameters {
 transformed parameters {
  
   // transformed parameters for beta binomial regression
-  real<lower=0,upper=1> mu[n_time]; // transf. lin. pred. for mean of beta distribution
+  real<lower=0,upper=1> yhat[n_time]; // transf. lin. pred. for mean of beta distribution
   real<lower=0> A[n_time];          // parameter for beta distn
   real<lower=0> B[n_time];          // parameter for beta distn
  
   // params for random beta
-  vector[n_time] yhat;
-  vector[n_lag] beta;
+  vector[n_time] mu;
+  vector[M] beta;
   vector[M*K] beta_wt;
   matrix[M,M] sigma_beta; // covariance matrix
   matrix[M,M] L;     // cholesky of covariance matrix
   
   // covariance
-  sigma_beta = cov_exp_quad(month, eta, rho) + diag_matrix(rep_vector(0.001, n_lag));
+  sigma_beta = cov_exp_quad(month, eta, rho) + diag_matrix(rep_vector(0.001, M));
   L = cholesky_decompose(sigma_beta);
   
   // non-centered parameterization for beta
@@ -61,13 +61,13 @@ transformed parameters {
   beta_wt[m3] = theta_y[3] * beta;
   
   // linear predictor
-  yhat = alpha + clim * beta_wt;
+  mu = alpha + clim * beta_wt;
   
   // beta reparameterization
   for(n in 1:n_time){
-    mu[n]  = inv_logit(yhat[n]);
-    A[n]   = mu[n] * y_sd;
-    B[n]   = (1.0 - mu[n]) * y_sd;
+    yhat[n] = inv_logit(yhat[n]);
+    A[n]    = yhat[n] * y_sd;
+    B[n]    = (1.0 - yhat[n]) * y_sd;
   }
   
 }

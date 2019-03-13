@@ -11,6 +11,12 @@ parameters {
   real<lower=0> y_sd;
 }
 
+transformed parameters {
+  vector[n_time] yhat;
+  
+  yhat = alpha + beta * clim_means;
+}
+
 model {
   
   // priors
@@ -19,7 +25,7 @@ model {
   y_sd  ~ gamma(1,1);
   
   // model
-  y ~ normal(alpha + beta * clim_means, y_sd);
+  y ~ normal(yhat, y_sd);
 }
 
 generated quantities {

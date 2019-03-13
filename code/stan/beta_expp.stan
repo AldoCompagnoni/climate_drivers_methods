@@ -28,13 +28,14 @@ parameters {
 transformed parameters{
   
   // transformed parameters for beta binomial regression
-  real<lower=0,upper=1> mu[n_time];    // transformed linear predictor for mean of beta distribution
+  real<lower=0,upper=1> yhat[n_time];    // transformed linear predictor for mean of beta distribution
   real<lower=0> A[n_time];               // parameter for beta distn
   real<lower=0> B[n_time];               // parameter for beta distn
   
   // transformed parameters for moving window
   vector[n_time] x;
   row_vector[n_lag] sens;
+  
   
   for(i in 1:n_lag)
     sens[i] = dexppow(i, sens_mu, sens_sd, expp_beta);
@@ -45,9 +46,9 @@ transformed parameters{
     x[i] = sum(sens .* row(clim, i));
     
   for(n in 1:n_time){
-    mu[n]  = inv_logit(alpha + x[n] * beta);
-    A[n]   = mu[n] * y_sd;
-    B[n]   = (1.0 - mu[n]) * y_sd;
+    yhat[n] = inv_logit(alpha + x[n] * beta);
+    A[n]    = yhat[n] * y_sd;
+    B[n]    = (1.0 - yhat[n]) * y_sd;
   }
 
 }

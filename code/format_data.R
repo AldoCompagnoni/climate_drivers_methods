@@ -82,9 +82,17 @@ clim_detrend <- function(clim_x, clim_var = "precip", st_dev = FALSE ){ #, pops
                 dplyr::select(year,month,value) %>% 
                 unique
     
-    # error check: there should be no doubles 
-    expect_equal(nrow(clim_u), (2014-1979)*12)
-    
+    if( unique(clim_x$species) %in% c("Pediocactus_bradyi",
+                                      "Astragalus_scaphoides_6_long",
+                                      "Astragalus_scaphoides_6_site_rep",
+                                      "Cryptantha_flava_2" ) ){
+      # error check: there should be no doubles 
+      expect_equal(nrow(clim_u), (2015-1979)*12)
+    }else{
+      # error check: there should be no doubles 
+      expect_equal(nrow(clim_u), (2014-1979)*12)
+    }
+      
     # format data in wide form
     clim_m  <- clim_u %>% 
                   spread( month, value ) %>%

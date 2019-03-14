@@ -11,6 +11,7 @@ library(RCurl)
 # 1. Download PRISM MOHTHLY data for the coordinates 
 # 2. Download PRISM YEARLY data for the coordinates 
 # 3. Harmonize PRISM data with rest of CHELSA data
+# 4. Remove mistake in data from Eryngium_alpinum 
 
 # read up locations
 site_coord <- read.csv('data/coord_extra_climate.csv') %>% 
@@ -327,13 +328,48 @@ clim_fr   <- as.Date(1:tot_days, day_one-1) %>%
 
 
 # harmonize prism with chelsa data
-airt_out <- bind_rows( airt_df,  
+airt_raw <- bind_rows( airt_df,  
                        dplyr::select(clim_fr, -ppt) ) %>% 
                 arrange(species, population, year, day)
-prec_out <- bind_rows( prec_df,  
+prec_raw <- bind_rows( prec_df,  
                        dplyr::select(clim_fr, -airt) ) %>% 
                 arrange(species, population, year, day)
 
+
+# Remove mistake in data from Eryngium_alpinum ----------------------------------
+# (double lat/lon. Mistake in COMPADRE)
+
+# precipitation data                  
+prec_out <- prec_raw %>% 
+              subset( !(species == "Eryngium_alpinum" & population == 'PRC') ) 
+              
+# coordinates PRC and PRD are the same
+prec_add <-  prec_out %>% 
+              subset( species == "Eryngium_alpinum" ) %>% 
+              subset( population == 'PRD' ) %>% 
+              mutate( population = 'PRC' )
+
+# Insert correct climate data
+prec_out <- bind_rows(prec_out, prec_add) %>% 
+              arrange(species, population, year, day)
+
+
+# temperature data                  
+airt_out <- airt_raw %>% 
+              subset( !(species == "Eryngium_alpinum" & population == 'PRC') ) 
+              
+# coordinates PRC and PRD are the same
+airt_add <-  airt_out %>% 
+              subset( species == "Eryngium_alpinum" ) %>% 
+              subset( population == 'PRD' ) %>% 
+              mutate( population = 'PRC' )
+
+# Insert correct climate data
+airt_out <- bind_rows(airt_out, airt_add) %>% 
+              arrange(species, population, year, day)
+
+
+  
 # finally put it out
 write.csv(airt_out,'data/airt_chelsa_prism_hays_2014.csv',  row.names=F)
 write.csv(prec_out,'data/precip_chelsa_prism_hays_2014.csv',row.names=F)

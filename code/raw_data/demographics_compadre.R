@@ -111,7 +111,9 @@ pedio_vr  <- vr_by_mat_spp('Pediocactus_bradyi', compadre) %>%
                mutate( MatrixEndMonth = 3 )
 crypt_vr  <- vr_by_mat_spp('Cryptantha_flava_2', crypt) %>% 
                mutate( MatrixEndMonth = 5 ) %>% 
-               mutate( MatrixEndYear  = MatrixStartYear + 1 )
+               mutate( MatrixEndYear  = MatrixStartYear + 1 ) %>% 
+               # we care about controls only
+               subset( MatrixTreatment == 'C')
 # Only use longest time series for Astragalus scaphoides
 astr_vr_l <- vr_by_mat_spp('Astragalus_scaphoides_6', astr) %>% 
                mutate( MatrixEndMonth = 6 ) %>% 

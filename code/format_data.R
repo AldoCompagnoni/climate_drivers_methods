@@ -98,11 +98,16 @@ clim_detrend <- function(clim_x, clim_var = "precip", st_dev = FALSE ){ #, pops
                   spread( month, value ) %>%
                   setNames( c("year",month.abb) ) 
 
-    # if FetchClimate OR HAYS data
+    # if HAYS data
   } else{
     
     # if month_rep between 2 and 4, check whether it's a mistake
-    if( (month_rep %in% c(2:4)) %>% any ) print('WARNING: potential mistake in CHELSA data')
+    if( (month_rep %in% c(2:4)) %>% any ){
+      # only if specis is NOT from HAYS
+      if( !(unique(clim_x$species) %in% Dalgleish_spp) ){
+        print('WARNING: probable mistake in CHELSA climate data')
+      }
+    } 
     
     # if dataset is not precipitation take monthly MEAN
     if( clim_var == "airt" | clim_var == "soilmoist" ){

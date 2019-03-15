@@ -6,7 +6,6 @@ functions {
 }
 
 data {
-  
   int n_train;
   int n_test;
   int n_lag;
@@ -15,17 +14,14 @@ data {
   matrix[n_train, n_lag] clim_train;
   matrix[n_test,  n_lag] clim_test;
   real expp_beta;
-  
 }
 
 parameters {
-  
   real<lower=0,upper=n_lag> sens_mu;
-  real<lower=0,upper=n_lag*2> sens_sd;
+  real<lower=1> sens_sd;
   real alpha;
   real beta;
   real<lower=0> y_sd;
-  
 }
 
 transformed parameters{
@@ -33,20 +29,21 @@ transformed parameters{
   // transformed parameters for moving window
   vector[n_train] x;
   row_vector[n_lag] sens;
+  vector[n_train] yhat;
   
   for(i in 1:n_lag) 
     sens[i] = dexppow(i, sens_mu, sens_sd, expp_beta);
   
   sens = sens / sum(sens);
   
-  for(n in 1:n_train){ x[n] = sum(sens .* row(clim_train, n)); }
+  for(n in 1:n_train)
+    x[n] = sum(sens .* row(clim_train, n));
+    
+  yhat = exp(alpha + x * beta);
     
 }
 
 model {
-  
-  // place holder  
-  vector[n_time] mu; // transf. lin. pred. for mean
   
   // hyper-parameters to weight climate effects
   sens_sd ~ normal(0.5, 12);
@@ -57,11 +54,7 @@ model {
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1); 
   
-  // likelihood
-  for(n in 1:n_train)
-    mu[n] = exp(alpha + x[n] * beta);
-    
-  y_train ~ gamma(y_sd, y_sd ./ mu);
+  y_train ~ gamma(y_sd, y_sd ./ yhat);
   
 }
 
@@ -69,16 +62,14 @@ generated quantities {
   
   vector[n_train] log_lik;
   vector[n_test]  log_lik_test;
-  vector[n_test]  pred_y;    // transformed linear predictor for mean of beta distribution
-  vector[n_test]  pred_x;
+  vector[n_test]  pred_y; // transf. lin. pred. for mean of beta distrib.
 
   for (n in 1:n_train)
-    log_lik[n] = gamma_lpdf(y_train[n] | y_sd, (y_sd / exp(alpha + x[n] * beta)) );
+    log_lik[n] = gamma_lpdf(y_train[n] | y_sd, (y_sd / yhat[n]) );
 
   for(n in 1:n_test){
-    pred_x[n]       = sum(sens .* row(clim_test,n));
-    pred_y[n]       = exp(alpha + pred_x[n] * beta);
-    log_lik_test[n] = gamma_lpdf(y_test[n] | y_sd, (y_sd / exp(alpha + pred_x[n] * beta)) );
+    pred_y[n]       = exp(alpha + sum(sens .* row(clim_test,n)) * beta);
+    log_lik_test[n] = gamma_lpdf(y_test[n] | y_sd, (y_sd / pred_y[n]) );
   }
 
 }

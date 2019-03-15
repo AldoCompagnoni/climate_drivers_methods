@@ -41,7 +41,6 @@ generated quantities {
   vector[n_test]  pred_y;
   vector[n_test]  log_lik_test;
   
-  
   // in sample prediction
   for (n in 1:n_train)
     log_lik[n] = normal_lpdf(y_train[n] | alpha + row(clim_train,n) * beta, y_sd);

@@ -14,20 +14,22 @@ parameters {
   real<lower=0> y_sd;
 }
 
-model{
+transformed parameters {
   // place holder  
-  vector[n_time] mu; // transf. lin. pred. for mean
+  vector[n_train] yhat; // transf. lin. pred. for mean
+  
+  yhat = exp(alpha + clim_means_train * beta);
+  
+}
+
+model{
   
   // parameters of data model
   alpha ~ normal(0,1);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
   
-  // likelihood
-  for(n in 1:n_train)
-    mu[n] = exp(alpha + clim_means_train[n] * beta);
-    
-  y_train ~ gamma(y_sd, y_sd ./ mu);
+  y_train ~ gamma(y_sd, y_sd ./ yhat);
 }
 
 generated quantities{
@@ -36,10 +38,10 @@ generated quantities{
   vector[n_test]  log_lik_test;
 
   for(n in 1:n_train)
-    log_lik[n] = gamma_lpdf(y_train[n] | y_sd, (y_sd / exp(alpha + clim_means_train[n] * beta)) );
+    log_lik[n] = gamma_lpdf(y_train[n] | y_sd, (y_sd / yhat[n]) );
     
   for(n in 1:n_test){
     pred_y[n]  = exp(alpha + clim_means_test[n] * beta);
-    log_lik_test[n] = gamma_lpdf(y_test[n] | y_sd, (y_sd / exp(alpha + clim_means_test[n] * beta)) );
+    log_lik_test[n] = gamma_lpdf(y_test[n] | y_sd, (y_sd / pred_y[n]) );
   }
 }

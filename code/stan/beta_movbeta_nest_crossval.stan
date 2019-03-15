@@ -1,10 +1,13 @@
 
 data {
-  int<lower=0> n_time;  // number of data points, length(y)
+  int n_train;
+  int n_test;
   int M;              // number of months-within-years
   int K;              // number of years
-  vector[n_time] y;          // response
-  matrix[n_time,M*K] clim;   // matrix of climate covariates
+  vector[n_train] y_train;
+  vector[n_test]  y_test;
+  matrix[n_train, M*K] clim_train;
+  matrix[n_test,  M*K] clim_test;
 }
 
 transformed data {
@@ -37,12 +40,12 @@ parameters {
 transformed parameters {
  
   // transformed parameters for beta binomial regression
-  real<lower=0,upper=1> yhat[n_time]; // transf. lin. pred. for mean of beta distribution
-  real<lower=0> A[n_time];          // parameter for beta distn
-  real<lower=0> B[n_time];          // parameter for beta distn
+  real<lower=0,upper=1> yhat[n_train]; // transf. lin. pred. for mean of beta distribution
+  real<lower=0> A[n_train];          // parameter for beta distn
+  real<lower=0> B[n_train];          // parameter for beta distn
  
   // params for random beta
-  vector[n_time] mu;
+  vector[n_train] mu;
   vector[M] beta;
   vector[M*K] beta_wt;
   matrix[M,M] sigma_beta; // covariance matrix
@@ -61,10 +64,10 @@ transformed parameters {
   beta_wt[m3] = theta_y[3] * beta;
   
   // linear predictor
-  mu = alpha + clim * beta_wt;
+  mu = alpha + clim_train * beta_wt;
   
   // beta reparameterization
-  for(n in 1:n_time){
+  for(n in 1:n_train){
     yhat[n] = inv_logit(mu[n]);
     A[n]    = yhat[n] * y_sd;
     B[n]    = (1.0 - yhat[n]) * y_sd;
@@ -86,13 +89,24 @@ model {
   y_sd ~ gamma(1,1); 
 
   // model
-  y ~ beta(A, B);
+  y_train ~ beta(A, B);
 }
 
 generated quantities {
-  vector[n_time] log_lik;
+  vector[n_train] log_lik;
+  vector[n_test]  log_lik_test;
+  vector[n_test]  pred_y;
+  real<lower=0>   A_test[n_test];               // parameter for beta distn
+  real<lower=0>   B_test[n_test];               // parameter for beta distn
+
+  for(n in 1:n_train)
+    log_lik[n] = beta_lpdf(y_train[n] | A[n], B[n]);
   
-  for (n in 1:n_time) {
-    log_lik[n] = beta_lpdf(y[n] | A[n], B[n]);
+  // out of sample prediction
+  for(n in 1:n_test){
+    pred_y[n]       = inv_logit(alpha + row(clim_test,n) * beta_wt);
+    A_test[n]       = pred_y[n] * y_sd;
+    B_test[n]       = (1.0 - pred_y[n]) * y_sd;
+    log_lik_test[n] = beta_lpdf(y_test[n] | A_test[n], B_test[n]);
   }
 }

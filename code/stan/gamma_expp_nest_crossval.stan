@@ -26,8 +26,8 @@ data {
 
 parameters {
   real<lower=0,upper=M> sens_mu;
-  real<lower=0,upper=M*2> sens_sd;
-  simplex[K] theta_y; 
+  real<lower=1> sens_sd;
+  simplex[K] theta_y;
   real alpha;
   real beta;
   real<lower=0> y_sd;
@@ -36,6 +36,7 @@ parameters {
 transformed parameters {
   
   vector[n_train] x;
+  vector[n_train] yhat;
   vector[M] sens_m;
   matrix[K,n_train] x_m;
   
@@ -52,12 +53,12 @@ transformed parameters {
 
   for(i in 1:n_train)
     x[i] = sum(theta_y .* x_m[,i]);
+    
+  yhat = exp(alpha + x * beta);
+  
 }
 
 model {
-  // place holder  
-  vector[n_train] mu; // transf. lin. pred. for mean
-  
   // hyper-parameters to weight climate effects
   sens_sd ~ normal(0.5, 12);
   sens_mu ~ normal(6.5, 12);
@@ -68,11 +69,7 @@ model {
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1); 
   
-  // likelihood
-  for(n in 1:n_train)
-    mu[n] = exp(alpha + x[n] * beta);
-    
-  y_train ~ gamma(y_sd, y_sd ./ mu);
+  y_train ~ gamma(y_sd, y_sd ./ yhat);
 }
 
 generated quantities {
@@ -92,6 +89,6 @@ generated quantities {
     pred_x_m[3,n] = sum(sens_m  .* clim3_test[,n]);
     pred_x[n]       = sum(theta_y .* pred_x_m[,n]);
     pred_y[n]       = exp(alpha + pred_x[n] * beta);
-    log_lik_test[n] = gamma_lpdf(y_test[n] | y_sd, (y_sd / exp(alpha + pred_x[n] * beta)) );
+    log_lik_test[n] = gamma_lpdf(y_test[n] | y_sd, (y_sd / pred_y[n]) );
   }
 }

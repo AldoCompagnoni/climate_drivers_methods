@@ -198,14 +198,6 @@ setup_model_runs <- function( weight,
                  rep( spat_n ) %>% 
                  Reduce( function(...) rbind(...), .)
   
-  # simulation parameters
-  sim_pars <- list(
-    warmup = 1000, 
-    iter   = 4000, 
-    thin   = 2, 
-    chains = 3
-  )
-
   # organize data into list to pass to stan
   dat_stan <- list(
     n_time  = nrow(clim_mult),
@@ -225,6 +217,15 @@ setup_model_runs <- function( weight,
 }
 
 mod_gaus <- stan_model(file = paste0("code/stan/normal_gaus_nest.stan") )
+mod_null <- stan_model(file = paste0("code/stan/normal_null.stan") )
+
+# simulation parameters
+sim_pars <- list(
+    warmup = 1000, 
+    iter   = 4000, 
+    thin   = 2, 
+    chains = 4
+  )
 
 
 dat_stan <- setup_model_runs( weight = T,   
@@ -232,16 +233,43 @@ dat_stan <- setup_model_runs( weight = T,
                               y_sd   = 0.3, 
                               beta_x = 1.1 )
 
-init_t <- Sys.time()
+
+fit_null <- sampling(
+  object =mod_null,
+  data = dat_stan,
+  pars = c('alpha', 'y_sd'),
+  warmup = sim_pars$warmup,
+  iter = sim_pars$iter,
+  thin = sim_pars$thin,
+  chains = 1, #sim_pars$chains,
+  init  = list( alpha = 1,
+                y_sd = 0.3 )
+  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
+)
+
 # gaussian moving window
 fit_gaus1 <- sampling(
   object =mod_gaus,
   data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd'),
+  pars = c('sens_mu', 'sens_sd', 'theta_y', 
+           'alpha', 'beta', 'y_sd'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
-  chains = sim_pars$chains,
+  chains = 1, #sim_pars$chains,
+  init  = list( beta = 0.5,
+                sens_mu = 5,
+                sens_sd = 1,
+                alpha = 1,
+                y_sd = 0.3,
+                theta_y = c(1/3),
+  # init  = list( beta = c(0.5,0.5,-0.5,-0.5),
+  #               sens_mu = rep(5,4),
+  #               sens_sd = rep(1,4),
+  #               alpha = rep(1,4),
+  #               y_sd = rep(0.3,4),
+  #               theta_y = rep(c(1/3,1/3,1/3),4) 
+  #               ),
   control = list(adapt_delta = 0.999)#,
   #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
@@ -365,6 +393,11 @@ extract(fit_gaus9)$beta %>% hist(main = 'beta')
 
 dev.off()
 
+# examine chaning
+extract(fit_gaus1)$beta %>% plot
+
+shinystan::launch_shinystan(fit_gaus1)
+
 # extract(fit_gaus1)$beta    %>% hist(main = 'beta')
 # extract(fit_gaus1)$sens_mu %>% hist(main = 'sens_mu')
 # extract(fit_gaus1)$theta_y %>% boxplot(main='yr weights')
@@ -387,3 +420,15 @@ dev.off()
 # 
 # dev.off()
 
+
+library(rstan)
+
+scode <- "
+parameters {
+  real y[2]; 
+} 
+model {
+  y[1] ~ normal(0, 1);
+  y[2] ~ double_exponential(0, 2);
+} 
+"

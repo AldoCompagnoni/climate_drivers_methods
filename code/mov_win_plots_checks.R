@@ -2,8 +2,8 @@
 # data ~ x_ante
 # posterior predictive checks
 source("C:/CODE/moving_windows/format_data.R")
-library(tidyverse)
-library(dismo)
+library(dplyr)
+library(tidyr)
 library(mgcv)
 library(testthat)
 library(rstan)

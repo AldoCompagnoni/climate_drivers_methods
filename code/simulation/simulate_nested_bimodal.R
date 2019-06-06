@@ -227,53 +227,55 @@ sim_pars <- list(
     chains = 4
   )
 
-
+# data!
 dat_stan <- setup_model_runs( weight = T,   
                               spat_n = 4,
                               y_sd   = 0.3, 
                               beta_x = 1.1 )
 
 
-fit_null <- sampling(
-  object =mod_null,
-  data = dat_stan,
-  pars = c('alpha', 'y_sd'),
-  warmup = sim_pars$warmup,
-  iter = sim_pars$iter,
-  thin = sim_pars$thin,
-  chains = 1, #sim_pars$chains,
-  init  = list( alpha = 1,
-                y_sd = 0.3 )
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
-)
+# initial values with betas of different sign
+init_beta_sign <- 
+  list( list( beta = 0.5,
+          sens_mu = 1,
+          sens_sd = 5,
+          alpha = 0,
+          y_sd = 0.3,
+          theta_y = c(1/3,1/3,1/3) ),
+        list( beta = 0.5,
+          sens_mu = 1,
+          sens_sd = 5,
+          alpha = 0,
+          y_sd = 0.3,
+          theta_y = c(1/3,1/3,1/3) ),
+        list( beta = -0.5,
+          sens_mu = 1,
+          sens_sd = 5,
+          alpha = 0,
+          y_sd = 0.3,
+          theta_y = c(1/3,1/3,1/3) ),
+        list( beta = -0.5,
+          sens_mu = 1,
+          sens_sd = 5,
+          alpha = 0,
+          y_sd = 0.3,
+          theta_y = c(1/3,1/3,1/3) ) 
+        )
 
-# gaussian moving window
+
+# fit nine models on the same data 
 fit_gaus1 <- sampling(
   object =mod_gaus,
   data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'theta_y', 
-           'alpha', 'beta', 'y_sd'),
+  pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
-  chains = 1, #sim_pars$chains,
-  init  = list( beta = 0.5,
-                sens_mu = 5,
-                sens_sd = 1,
-                alpha = 1,
-                y_sd = 0.3,
-                theta_y = c(1/3),
-  # init  = list( beta = c(0.5,0.5,-0.5,-0.5),
-  #               sens_mu = rep(5,4),
-  #               sens_sd = rep(1,4),
-  #               alpha = rep(1,4),
-  #               y_sd = rep(0.3,4),
-  #               theta_y = rep(c(1/3,1/3,1/3),4) 
-  #               ),
+  chains = sim_pars$chains,
+  init = init_beta_sign,
   control = list(adapt_delta = 0.999)#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
-  
+
 fit_gaus2 <- sampling(
   object =mod_gaus,
   data = dat_stan,
@@ -282,8 +284,8 @@ fit_gaus2 <- sampling(
   iter = sim_pars$iter,
   thin = sim_pars$thin,
   chains = sim_pars$chains,
+  init = init_beta_sign,
   control = list(adapt_delta = 0.999)#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
 fit_gaus3 <- sampling(
@@ -294,8 +296,8 @@ fit_gaus3 <- sampling(
   iter = sim_pars$iter,
   thin = sim_pars$thin,
   chains = sim_pars$chains,
+  init = init_beta_sign,
   control = list(adapt_delta = 0.999)#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
 fit_gaus4 <- sampling(
@@ -306,8 +308,8 @@ fit_gaus4 <- sampling(
   iter = sim_pars$iter,
   thin = sim_pars$thin,
   chains = sim_pars$chains,
+  init = init_beta_sign,
   control = list(adapt_delta = 0.999)#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
 fit_gaus5 <- sampling(
@@ -318,8 +320,8 @@ fit_gaus5 <- sampling(
   iter = sim_pars$iter,
   thin = sim_pars$thin,
   chains = sim_pars$chains,
+  init = init_beta_sign,
   control = list(adapt_delta = 0.999)#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
 fit_gaus6 <- sampling(
@@ -330,8 +332,8 @@ fit_gaus6 <- sampling(
   iter = sim_pars$iter,
   thin = sim_pars$thin,
   chains = sim_pars$chains,
+  init = init_beta_sign,
   control = list(adapt_delta = 0.999)#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
 fit_gaus7 <- sampling(
@@ -342,8 +344,8 @@ fit_gaus7 <- sampling(
   iter = sim_pars$iter,
   thin = sim_pars$thin,
   chains = sim_pars$chains,
+  init = init_beta_sign,
   control = list(adapt_delta = 0.999)#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
 fit_gaus8 <- sampling(
@@ -354,8 +356,8 @@ fit_gaus8 <- sampling(
   iter = sim_pars$iter,
   thin = sim_pars$thin,
   chains = sim_pars$chains,
+  init = init_beta_sign,
   control = list(adapt_delta = 0.999)#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
 fit_gaus9 <- sampling(
@@ -366,11 +368,12 @@ fit_gaus9 <- sampling(
   iter = sim_pars$iter,
   thin = sim_pars$thin,
   chains = sim_pars$chains,
+  init = init_beta_sign,
   control = list(adapt_delta = 0.999)#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
-Sys.time() - init_t 
+# check the chains
+shinystan::launch_shinystan(fit_gaus1)
 
 
 tiff('results/simulations/bimodal/betas_from_same_data.tiff',
@@ -393,10 +396,6 @@ extract(fit_gaus9)$beta %>% hist(main = 'beta')
 
 dev.off()
 
-# examine chaning
-extract(fit_gaus1)$beta %>% plot
-
-shinystan::launch_shinystan(fit_gaus1)
 
 # extract(fit_gaus1)$beta    %>% hist(main = 'beta')
 # extract(fit_gaus1)$sens_mu %>% hist(main = 'sens_mu')
@@ -420,15 +419,3 @@ shinystan::launch_shinystan(fit_gaus1)
 # 
 # dev.off()
 
-
-library(rstan)
-
-scode <- "
-parameters {
-  real y[2]; 
-} 
-model {
-  y[1] ~ normal(0, 1);
-  y[2] ~ double_exponential(0, 2);
-} 
-"

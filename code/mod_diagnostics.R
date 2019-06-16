@@ -1,16 +1,23 @@
-# produce summary graphs
-# 1. LOOIC results from 
-# 2. LPPD results from supercomputer
+# produce diagnostics for all models
+# 1. Set up data
+# 2. Proportion models with issues
+# 3. Proportion of parameters with issues
+#       (not doable, too complicated)
+# 4. Rhat ~ n_eff
 source("code/format_data.R")
 library(testthat)
 library(dplyr)
 library(tidyr)
+library(ggplot2)
 library(viridis)
 require(gridExtra)
 library(egg)
+library(stringr)
 options(stringsAsFactors = F )
 
-# 1. LOOIC results from  -------------------------------------------------------
+
+
+# 1. Set up data  -------------------------------------------------------
 out_dir  <- 'C:/CODE/climate_drivers_methods/'
 clim_var <- 'precip'
 resp_l   <- c('log_lambda','surv','grow','fec')
@@ -38,52 +45,120 @@ create_rep_n <- function(x, lam, response){
 # data frame on total replication
 rep_n_df <- lapply(spp, create_rep_n, lam, response) %>% bind_rows
 
-
 # model order no control
 mod_ordr <- c('ctrl1','yr1','yr2','yr3',
-              'gaus',    'expp',
-              'gaus_n',  'expp_n', 'simpl_n',
-              'movb_h',  'movb',
-              'movb_h_n','movb_n')
+              'gaus',   'expp',
+              'gaus_n', 'expp_n', 'simpl_n',
+              'mb_h',   'mb',
+              'mb_h_n', 'mb_n')
 
-# read in files
+
+
+# data frame containing inputs
+input_df  <- expand.grid( resp     = c('log_lambda','surv',
+                                       'grow','fec'),
+                          clim_var = c('precip','airt'),
+                          stringsAsFactors = F ) %>% 
+                mutate( resp_clim = paste(resp, clim_var, sep='_') )
+
+# where are the files?
+mod_dir   <- 'E:/work/sApropos/2019.6.11/'
+
+# file list
 sum_f_l   <- grep('mod_summ',
-                  list.files(paste0('results/mod_sel/',
-                                    clim_var)),
-                  value=T) 
+                  list.files(mod_dir),
+                  value=T) #%>% 
+               # grep(resp_clim, ., value=T)
 
-# extract function
-extract_element <- function(x,patt){
-  regmatches(x, 
-             gregexpr(patt, x) )
+# path list
+path_l    <- paste0(mod_dir, sum_f_l)
+
+# extract species names
+spp_names <- gsub("mod_summaries_", "", sum_f_l ) %>%
+                gsub('array_vr-[0-9]{7}-[0-9]{1,2}_', "", . ) %>% 
+                gsub('.csv', "", . ) %>% 
+                gsub( paste(input_df$resp_clim, collapse='|'),
+                      '', .) %>% 
+                gsub('_$','', .)
+
+# species, response, and climate
+spp_resp_clim <- gsub("mod_summaries_", "", sum_f_l ) %>%
+                   gsub('array_vr-[0-9]{7}-[0-9]{1,2}_', "", . ) %>% 
+                   gsub('.csv', "", . )
+
+# get response and climate variable (without spp info)
+get_res_clim <- function(ii){
+  gsub(spp_names[ii], '', spp_resp_clim[ii]) %>% 
+    gsub('^_','',.)
 }
+
+# response and climate
+resp_clim <- sapply(1:length(spp_resp_clim), get_res_clim)
+
+# download files serially
+create_sum_df <- function(path_l, 
+                          spp_names,
+                          resp_clim){
   
-# read all summaries
-f_paths   <- paste0('results/mod_sel/',clim_var,'/',sum_f_l)
-spp_v     <- gsub( paste0('mod_summaries_',resp_l,'_') %>% 
-                   paste(collapse='|') %>% 
-                   paste0('|.csv'),
-                   '',sum_f_l)
-resp_v    <- gsub( 'mod_summaries_', '', sum_f_l) %>%
-                # delete ANYTHING less than 101 character long that follows:
-                # either fec or surv or grow or log_lambda
-                gsub(paste0('(?<=',paste(resp_l,collapse='|'),').{1,100}'), 
-                     '', ., perl=T)
-
-read_format_summ <- function(x,spp_x,resp_x){
-  read.csv(x) %>% 
-    tibble::add_column( species  = spp_x, .before = 2) %>% 
-    tibble::add_column( response = resp_x, .before = 2)
+  read.csv(path_l, stringsAsFactors = F) %>% 
+    tibble::add_column(species = spp_names,.before=1) %>% 
+    tibble::add_column(resp_clim = resp_clim, .before=4)
+  
 }
+
+# get all model summaries
+mod_sum_df  <- Map(create_sum_df, path_l,
+                   spp_names, resp_clim) %>% 
+                  bind_rows %>% 
+                  mutate( resp_clim = gsub('log_lambda', 'loglambda', resp_clim) ) %>% 
+                  separate( resp_clim, c('response','clim'),sep='_') %>% 
+                  mutate( response = gsub('loglambda', 'log_lambda', response) )
+
+
+# # read in files
+# sum_f_l   <- grep('mod_summ',
+#                   list.files(paste0('results/mod_sel/',
+#                                     clim_var)),
+#                   value=T) 
+# 
+# # extract function
+# extract_element <- function(x,patt){
+#   regmatches(x, 
+#              gregexpr(patt, x) )
+# }
+#   
+# # read all summaries
+# f_paths   <- paste0('results/mod_sel/',clim_var,'/',sum_f_l)
+# spp_v     <- gsub( paste0('mod_summaries_',resp_l,'_') %>% 
+#                    paste(collapse='|') %>% 
+#                    paste0('|.csv'),
+#                    '',sum_f_l)
+# resp_v    <- gsub( 'mod_summaries_', '', sum_f_l) %>%
+#                 # delete ANYTHING less than 101 character long that follows:
+#                 # either fec or surv or grow or log_lambda
+#                 gsub(paste0('(?<=',paste(resp_l,collapse='|'),').{1,100}'), 
+#                      '', ., perl=T)
+# 
+# # 
+# read_format_summ <- function(x,spp_x,resp_x){
+#   read.csv(x) %>% 
+#     tibble::add_column( species  = spp_x,  .before = 2) %>% 
+#     tibble::add_column( response = resp_x, .before = 2)
+# }
 
 # all model summaries in one data frame
-diag_df <- Map(read_format_summ, 
-               f_paths, spp_v, resp_v) %>% 
-               bind_rows %>% 
+# diag_df <- Map(read_format_summ, 
+#                f_paths, spp_v, resp_v) %>% 
+#                bind_rows %>% 
+
+diag_df <- mod_sum_df %>% 
                left_join( rep_n_df ) %>% 
+               # subset 
                # Add "flags" for convergence issues
                mutate( diverg   = n_diverg > 0,
-                       rhat     = rhat_high > 0 ) %>% 
+                       rhat     = rhat_high > 0,
+                       n_eff    = n_eff_low > 0,
+                       mcse     = mcse_high > 0 ) %>% 
                # good to "order" predictors
                mutate( model    = factor(model, levels = mod_ordr),
                        response = factor(response, 
@@ -109,87 +184,481 @@ fitted_df   <- diag_df %>%
                           n_eff_low == 0 & 
                           mcse_high == 0 )
 
-# divergent transitions
-diverg_df  <- diag_df %>% 
-                  subset( !(n_diverg  %in% 0) )
-
-# Rhat < 1.1 
-rhat_df    <- diag_df %>% 
-                  subset( !(rhat_high  %in% 0) )
+select(diag_df, model, species, response, rhat) %>% head
 
 
-# divergent transition ----------------------------------------
-p1 <- ggplot(mod_div_df, aes(x=model, y=n_diverg) ) +
-        geom_jitter( aes(color = response) ) +
-        scale_color_viridis( discrete = T ) + 
-        theme( axis.text     = element_text( angle = 90),
-               legend.text   = element_text(size=7),
-               legend.title  = element_text(size=7),
-               legend.margin = margin(0,0,0,0,unit='pt'))
+# 2. Proportion models with issues ------------------------------------------
 
-p2 <- ggplot(mod_div_df, aes(x=sppcode, y=n_diverg) ) +
-        geom_jitter( aes(color = response) ) +
-        theme( axis.text = element_text( angle = 90),
-               legend.position = 'none',
-               legend.margin   = 1) +
-        scale_color_viridis( discrete = T)
+# proportion of issues by model
 
-out_p <- grid.arrange(p1, p2, nrow=2, ncol=1) 
-ggsave(file = 'results/converg/div_mod_spp.tiff',
+# prop divergent transitions
+div_df     <- diag_df %>% 
+                group_by( model ) %>% 
+                summarise( tot  = sum(diverg),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_div = tot / rep )
+
+# prop divergent transitions
+rhat_df     <- diag_df %>% 
+                group_by( model ) %>% 
+                summarise( tot  = sum(rhat),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_rhat = tot / rep )
+
+# prop mcse issue
+mcse_df     <- diag_df %>% 
+                group_by( model ) %>% 
+                summarise( tot  = sum(mcse),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_mcse = tot / rep )
+
+# prop msce issue
+n_eff_df    <- diag_df %>% 
+                group_by( model ) %>% 
+                summarise( tot  = sum(n_eff),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_n_eff = tot / rep )
+
+# proportions of problems by model
+p1 <- ggplot(div_df, aes(model, p_div)) +
+        geom_point(aes(size = '0.7') ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. div issue' )+
+        xlab( 'Model' ) +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+p2 <- ggplot(rhat_df, aes(model, p_rhat)) +
+        geom_point(aes(size = '0.7') ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. rhat issue' )+
+        xlab( 'Model' ) +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+p3 <- ggplot(mcse_df, aes(model, p_mcse)) +
+        geom_point(aes(size = '0.7') ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. mcse issue' )+
+        xlab( 'Model' ) +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+p4 <- ggplot(n_eff_df, aes(model, p_n_eff)) +
+        geom_point(aes(size = '0.7') ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. n_eff issue' )+
+        xlab( 'Model' ) +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+out_p <- grid.arrange(p1, p2, p3, p4, nrow=2, ncol=2) 
+ggsave(file = 'results/converg/prop_issue_mod.tiff',
        plot = out_p, width = 6.3, height = 6.3,
        compression="lzw")
 
 
-# Nhat ---------------------------------------------------
-p1 <- ggplot(diag_df, aes(x=model, y=rhat_high) ) +
-        geom_jitter( aes(color = response) ) +
-        scale_color_viridis( discrete = T ) + 
-        theme( axis.text     = element_text( angle = 90),
-               legend.text   = element_text(size=7),
-               legend.title  = element_text(size=7),
-               legend.margin = margin(0,0,0,0,unit='pt'))
+# proportion of issues by model AND VITAL RATE
 
-p2 <- ggplot(diag_df, aes(x=sppcode, y=rhat_high) ) +
-        geom_jitter( aes(color = response) ) +
-        theme( axis.text = element_text( angle = 90),
-               legend.position = 'none',
-               legend.margin   = 1) +
-        scale_color_viridis( discrete = T)
+# prop divergent transitions
+div_df     <- diag_df %>% 
+                group_by( model, response ) %>% 
+                summarise( tot  = sum(diverg),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_div = tot / rep )
 
-out_p <- grid.arrange(p1, p2, nrow=2, ncol=1) 
-ggsave(file = 'results/converg/rhat_mod_spp.tiff',
+# prop divergent transitions
+rhat_df     <- diag_df %>% 
+                group_by( model, response ) %>% 
+                summarise( tot  = sum(rhat),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_rhat = tot / rep )
+
+# prop mcse issue
+mcse_df     <- diag_df %>% 
+                group_by( model, response ) %>% 
+                summarise( tot  = sum(mcse),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_mcse = tot / rep )
+
+# prop msce issue
+n_eff_df    <- diag_df %>% 
+                group_by( model, response ) %>% 
+                summarise( tot  = sum(n_eff),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_n_eff = tot / rep )
+
+# proportions of problems by model
+p1 <- ggplot(div_df, aes(model, p_div)) +
+        geom_point(aes( color = response,
+                        size = '0.7'),
+                        position = position_jitter(w=0.1,h=0) )  +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. div issue' )+
+        xlab( 'Model' ) +
+        scale_color_viridis_d() +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,
+                                           vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+p2 <- ggplot(rhat_df, aes(model, p_rhat)) +
+        geom_point(aes( color = response,
+                        size = '0.7'),
+                        position = position_jitter(w=0.1,h=0) ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. rhat issue' )+
+        xlab( 'Model' ) +
+        scale_color_viridis_d() +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+p3 <- ggplot(mcse_df, aes(model, p_mcse)) +
+        geom_point(aes( color = response,
+                        size = '0.7'),
+                        position = position_jitter(w=0.1,h=0) ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. mcse issue' )+
+        xlab( 'Model' ) +
+        scale_color_viridis_d() +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+p4 <- ggplot(n_eff_df, aes(model, p_n_eff)) +
+        geom_point(aes( color = response,
+                        size = '0.7'),
+                        position = position_jitter(w=0.1,h=0) ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. n_eff issue' )+
+        xlab( 'Model' ) +
+        scale_color_viridis_d() +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+# store legend
+leg <- ggplot(n_eff_df, aes(model, p_n_eff)) +
+        scale_color_viridis_d() +
+        geom_point(aes( color = response) ) +
+        theme( legend.position = 'right')
+
+# only extract legend from a ggplot
+get_legend <- function(a.gplot){ 
+    tmp <- ggplot_gtable(ggplot_build(a.gplot)) 
+    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box") 
+    legend <- tmp$grobs[[leg]] 
+    legend
+} 
+
+# prepare plotting layout
+lay <- rbind(c(1,1,2,2,3),
+             c(1,1,2,2,3),
+             c(4,4,5,5,NA),
+             c(4,4,5,5,NA))
+
+out_p <- grid.arrange(p1,p2,get_legend(leg), p3, p4, 
+             layout_matrix = lay)
+ggsave(file = 'results/converg/prop_issue_mod_vr.tiff',
+       plot = out_p, width = 6.3, height = 5,
+       compression="lzw")
+
+  
+# gs <- gList(p1,p2, get_legend(leg),p3,p4)
+# 
+# gList(grob(p1),grob(p2),
+#       grob(get_legend(leg),
+#       grob(p3),grob(p5)              )
+#   
+# select_grobs <- function(lay) {
+#   id <- unique(c(t(lay))) 
+#   id[!is.na(id)]
+# } 
+# # Function to extract legend
+# g_legend <- function(a.gplot){ 
+#     tmp <- ggplot_gtable(ggplot_build(a.gplot)) 
+#     leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box") 
+#     legend <- tmp$grobs[[leg]] 
+#     legend
+# } 
+# g_legend(my_hist)
+
+
+# proportion of issues by replication of years
+
+# prop divergent transitions
+div_df     <- diag_df %>% 
+                group_by( rep_yr ) %>% 
+                summarise( tot  = sum(diverg),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_div = tot / rep )
+
+# prop divergent transitions
+rhat_df     <- diag_df %>% 
+                group_by( rep_yr ) %>% 
+                summarise( tot  = sum(rhat),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_rhat = tot / rep )
+
+# prop mcse issue
+mcse_df     <- diag_df %>% 
+                group_by( rep_yr ) %>% 
+                summarise( tot  = sum(mcse),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_mcse = tot / rep )
+
+# prop msce issue
+n_eff_df    <- diag_df %>% 
+                group_by( rep_yr ) %>% 
+                summarise( tot  = sum(n_eff),
+                           rep  = n() ) %>% 
+                ungroup %>% 
+                mutate( p_n_eff = tot / rep )
+
+# proportions of problems by model
+p1 <- ggplot(div_df, aes(rep_yr, p_div)) +
+        geom_point(aes(size = '0.7') ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. div issue' )+
+        xlab( 'Model' ) +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+p2 <- ggplot(rhat_df, aes(rep_yr, p_rhat)) +
+        geom_point(aes(size = '0.7') ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. rhat issue' )+
+        xlab( 'Model' ) +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+p3 <- ggplot(mcse_df, aes(rep_yr, p_mcse)) +
+        geom_point(aes(size = '0.7') ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. mcse issue' )+
+        xlab( 'Model' ) +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+p4 <- ggplot(n_eff_df, aes(rep_yr, p_n_eff)) +
+        geom_point(aes(size = '0.7') ) +
+        ylim(0 ,1 ) +
+        ylab( 'Prop. n_eff issue' )+
+        xlab( 'Model' ) +
+        theme( axis.text.x  = element_text(angle = 90, 
+                                           hjust = 1,vjust = 0.5), 
+               axis.title      = element_text( size = 15),
+               legend.position="none" )
+
+out_p <- grid.arrange(p1, p2, p3, p4, nrow=2, ncol=2) 
+ggsave(file = 'results/converg/prop_issue_rep_yr.tiff',
        plot = out_p, width = 6.3, height = 6.3,
        compression="lzw")
 
+       
+# 3. Proportion of parameters with issues --------------
 
-# diagnostics versus rep_yr -----------------------------------
-p1 <- diag_df %>% 
-        subset( !(model %in% c('ctrl1','yr1','yr2','yr3')) ) %>% 
-        ggplot( aes(x=rep_yr, y=n_diverg) ) +
-        geom_jitter( alpha = 0.8,
-          aes(color = model) ) +
-        scale_color_viridis( discrete = T ) +
-        ylab( expression('Number of divergent transitions') ) + 
-        xlab( 'Temporal replication of dataset (years)' )
+# NOT DOABLE WITH 
 
-p2 <- diag_df %>% 
-        subset( !(model %in% c('ctrl1','yr1','yr2','yr3')) ) %>% 
-        ggplot( aes(x=rep_yr, y=rhat_high) ) +
-        geom_jitter( alpha = 0.8,
-          aes(color = model) ) +
-        scale_color_viridis( discrete = T ) +
-        ylab( expression('Number of '*hat(R)*' > 1.01') ) + 
-        xlab( 'Temporal replication of dataset (years)' )
+# get all names of diagnostics
+par_n <- diag_df %>% names 
 
-out_p <- grid.arrange(p1, p2, nrow=2, ncol=1) 
-ggsave(file = 'results/converg/diag_vs_yr_rep.tiff',
-       plot = out_p, width = 6.3, height = 6.3,
-       compression="lzw")
+# model parameters (NOT yhat, log_lik, etc.)
+params<- Filter(function(x) !grepl('yhat|median|log_lik',x),
+                par_n)[c(3,12:67)] 
+
+# numbers of parameters per model
+diag_df %>% 
+  select(species, model, response, clim) %>% 
+  mutate(n_pars = apply(diag_df[,params],1,function(x) sum(!is.na(x)) ) ) %>% 
+  select(model,n_pars) %>% 
+  unique
+
+# this clearly includes non-model params. Need to work on raw data.
+diag_df$rhat_high %>% unique
+
+
+# 4. Rhat ~ n_eff ----------------------------------------
+
+# data frame containing inputs
+input_df  <- expand.grid( resp     = c('log_lambda','surv',
+                                       'grow','fec'),
+                          clim_var = c('precip','airt'),
+                          stringsAsFactors = F ) %>% 
+                mutate( resp_clim = paste(resp, clim_var, sep='_') )
+
+# where are the files?
+mod_dir   <- 'E:/work/sApropos/2019.6.11/'
+
+# file list
+sum_f_l   <- grep('diagnostics_',
+                  list.files(mod_dir),
+                  value=T) #%>% 
+               # grep(resp_clim, ., value=T)
+
+# path list
+path_l    <- paste0(mod_dir, sum_f_l)
+
+# extract species names
+spp_names <- gsub("diagnostics_", "", sum_f_l ) %>%
+                gsub('array_vr-[0-9]{7}-[0-9]{1,2}_', "", . ) %>% 
+                gsub('.csv', "", . ) %>% 
+                gsub( paste(input_df$resp_clim, collapse='|'),
+                      '', .) %>% 
+                gsub('_$','', .)
+
+# species, response, and climate
+spp_resp_clim <- gsub("diagnostics_", "", sum_f_l ) %>%
+                   gsub('array_vr-[0-9]{7}-[0-9]{1,2}_', "", . ) %>% 
+                   gsub('.csv', "", . )
+
+# get response and climate variable (without spp info)
+get_res_clim <- function(ii){
+  gsub(spp_names[ii], '', spp_resp_clim[ii]) %>% 
+    gsub('^_','',.)
+}
+
+# response and climate
+resp_clim <- sapply(1:length(spp_resp_clim), get_res_clim)
+
+# download files serially
+create_sum_df <- function(path_l, 
+                          spp_names,
+                          resp_clim){
+  
+  read.csv(path_l, stringsAsFactors = F) %>% 
+    tibble::add_column(species = spp_names,.before=1) %>% 
+    tibble::add_column(resp_clim = resp_clim, .before=4)
+  
+}
+
+# get all model summaries
+diagnost_df  <- Map(create_sum_df, path_l,
+                    spp_names, resp_clim) %>% 
+                  bind_rows %>% 
+                  mutate( resp_clim = gsub('log_lambda', 'loglambda', resp_clim) ) %>% 
+                  separate( resp_clim, c('response','clim'),sep='_') %>% 
+                  mutate( response = gsub('loglambda', 'log_lambda', response) ) %>% 
+                  mutate( model = factor(model, levels=mod_ordr) )
+
+# plot
+# data frame containing inputs
+plot_l_df  <- expand.grid( resp     = c('log_lambda','surv',
+                                       'grow','fec'),
+                           clim_var = c('precip','airt'),
+                           species  = spp,
+                           stringsAsFactors = F ) %>% 
+                  mutate( resp_clim = paste(resp, clim_var, sep='_') ) 
+
+
+# plot rhat vs. neff for each species/climate variable/response BY SPECIES
+plot_rhat_neff_spp <- function(ii){
+  
+  plot_df <- diagnost_df %>% 
+                subset( response == plot_l_df$resp[ii] &
+                        clim     == plot_l_df$clim_var[ii] &
+                        species  == plot_l_df$species[ii] )
+  
+  if( nrow(plot_df) > 1 ){
+    ggplot(plot_df) +
+      geom_point( aes(n_eff,Rhat) ) +
+      facet_wrap( ~ model) + 
+      theme( strip.text.y  = element_text( size = 10,
+                                       margin = margin(0.5,0.5,0.5,0.5,
+                                                       'mm') ),
+             strip.text.x  = element_text( size = 10,
+                                           margin = margin(0.5,0.5,0.5,0.5,
+                                                           'mm') ),
+             strip.switch.pad.wrap = unit('0.5',unit='mm'),
+             panel.spacing = unit('0.5',unit='mm') 
+             ) +
+      ggsave(paste0('results/converg/rhat_neff/',
+                    substr(unique(plot_df$clim),1,4),'/',
+                    unique(plot_df$response),'/',
+                    unique(plot_df$species),'_neff_rhat',
+                    '.tiff'),
+             width=6.3,height=9,compression='lzw')
+  }
+
+}
+
+# Plot those out
+lapply(1:nrow(plot_l_df), plot_rhat_neff_spp)
+
+
+
+# plot rhat vs. neff ACROSS species
+plot_rhat_neff <- function(ii){
+  
+  plot_df <- diagnost_df %>% 
+                subset( response == input_df$resp[ii] &
+                        clim     == input_df$clim_var[ii]  )
+  
+  # big plot across all models
+  ggplot(plot_df) +
+    geom_point( aes(n_eff,
+                    Rhat),
+                alpha = 0.2) +
+    geom_hline( aes(yintercept = 1.1), 
+                lty = 2) +
+    ylim(1, 1.5) +
+    facet_wrap( ~ model) + 
+    theme( strip.text.y  = element_text( size = 20,
+                                     margin = margin(0.5,0.5,0.5,0.5,
+                                                     'mm') ),
+           strip.text.x  = element_text( size = 10,
+                                         margin = margin(0.5,0.5,0.5,0.5,
+                                                         'mm') ),
+           strip.switch.pad.wrap = unit('0.5',unit='mm'),
+           panel.spacing = unit('0.5',unit='mm') 
+           ) +
+    ggsave(paste0('results/converg/rhat_neff/',
+                  substr(unique(plot_df$clim),1,4),'/',
+                  unique(plot_df$response),'_',
+                  'neff_rhat.tiff'),
+           width=6.3,height=9,compression='lzw')
+
+
+}
+
+# store all Rhat vs. n_eff across all species
+lapply(1:nrow(input_df), plot_rhat_neff)
+
 
 
 # plots ------------------------------------------------------------
 prop_div <- diag_df %>% 
-              group_by( rep_yr) %>% 
+              group_by( model ) %>% 
               summarise( tot  = sum(diverg),
                          rep  = n() ) %>% 
               ungroup %>% 
@@ -268,6 +737,90 @@ out_p <- grid.arrange(p1, p2, p3, p4, nrow=2, ncol=2)
 ggsave(file = 'results/converg/prop_conv_issues.tiff',
        plot = out_p, width = 6.3, height = 6.3,
        compression="lzw")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# divergent transition ----------------------------------------
+p1 <- ggplot(mod_div_df, aes(x=model, y=n_diverg) ) +
+        geom_jitter( aes(color = response) ) +
+        scale_color_viridis( discrete = T ) + 
+        theme( axis.text     = element_text( angle = 90),
+               legend.text   = element_text(size=7),
+               legend.title  = element_text(size=7),
+               legend.margin = margin(0,0,0,0,unit='pt'))
+
+p2 <- ggplot(mod_div_df, aes(x=sppcode, y=n_diverg) ) +
+        geom_jitter( aes(color = response) ) +
+        theme( axis.text = element_text( angle = 90),
+               legend.position = 'none',
+               legend.margin   = 1) +
+        scale_color_viridis( discrete = T)
+
+out_p <- grid.arrange(p1, p2, nrow=2, ncol=1) 
+ggsave(file = 'results/converg/div_mod_spp.tiff',
+       plot = out_p, width = 6.3, height = 6.3,
+       compression="lzw")
+
+
+# Nhat ---------------------------------------------------
+p1 <- ggplot(diag_df, aes(x=model, y=rhat_high) ) +
+        geom_jitter( aes(color = response) ) +
+        scale_color_viridis( discrete = T ) + 
+        theme( axis.text     = element_text( angle = 90),
+               legend.text   = element_text(size=7),
+               legend.title  = element_text(size=7),
+               legend.margin = margin(0,0,0,0,unit='pt'))
+
+p2 <- ggplot(diag_df, aes(x=sppcode, y=rhat_high) ) +
+        geom_jitter( aes(color = response) ) +
+        theme( axis.text = element_text( angle = 90),
+               legend.position = 'none',
+               legend.margin   = 1) +
+        scale_color_viridis( discrete = T)
+
+out_p <- grid.arrange(p1, p2, nrow=2, ncol=1) 
+ggsave(file = 'results/converg/rhat_mod_spp.tiff',
+       plot = out_p, width = 6.3, height = 6.3,
+       compression="lzw")
+
+
+# diagnostics versus rep_yr -----------------------------------
+p1 <- diag_df %>% 
+        subset( !(model %in% c('ctrl1','yr1','yr2','yr3')) ) %>% 
+        ggplot( aes(x=rep_yr, y=n_diverg) ) +
+        geom_jitter( alpha = 0.8,
+          aes(color = model) ) +
+        scale_color_viridis( discrete = T ) +
+        ylab( expression('Number of divergent transitions') ) + 
+        xlab( 'Temporal replication of dataset (years)' )
+
+p2 <- diag_df %>% 
+        subset( !(model %in% c('ctrl1','yr1','yr2','yr3')) ) %>% 
+        ggplot( aes(x=rep_yr, y=rhat_high) ) +
+        geom_jitter( alpha = 0.8,
+          aes(color = model) ) +
+        scale_color_viridis( discrete = T ) +
+        ylab( expression('Number of '*hat(R)*' > 1.01') ) + 
+        xlab( 'Temporal replication of dataset (years)' )
+
+out_p <- grid.arrange(p1, p2, nrow=2, ncol=1) 
+ggsave(file = 'results/converg/diag_vs_yr_rep.tiff',
+       plot = out_p, width = 6.3, height = 6.3,
+       compression="lzw")
+
 
 
 

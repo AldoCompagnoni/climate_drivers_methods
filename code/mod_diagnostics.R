@@ -227,6 +227,7 @@ n_eff_df    <- diag_df %>%
 p1 <- ggplot(div_df, aes(model, p_div)) +
         geom_point(aes(size = '0.7') ) +
         ylim(0 ,1 ) +
+        geom_text( aes(x=1.5,y=1,label='A)') ) +
         ylab( 'Prop. div issue' )+
         xlab( 'Model' ) +
         theme( axis.text.x  = element_text(angle = 90, 
@@ -236,6 +237,7 @@ p1 <- ggplot(div_df, aes(model, p_div)) +
 
 p2 <- ggplot(rhat_df, aes(model, p_rhat)) +
         geom_point(aes(size = '0.7') ) +
+        geom_text( aes(x=1.5,y=1,label='B)') ) +
         ylim(0 ,1 ) +
         ylab( 'Prop. rhat issue' )+
         xlab( 'Model' ) +
@@ -246,6 +248,7 @@ p2 <- ggplot(rhat_df, aes(model, p_rhat)) +
 
 p3 <- ggplot(mcse_df, aes(model, p_mcse)) +
         geom_point(aes(size = '0.7') ) +
+        geom_text( aes(x=1.5,y=1,label='C)') ) +
         ylim(0 ,1 ) +
         ylab( 'Prop. mcse issue' )+
         xlab( 'Model' ) +
@@ -256,6 +259,7 @@ p3 <- ggplot(mcse_df, aes(model, p_mcse)) +
 
 p4 <- ggplot(n_eff_df, aes(model, p_n_eff)) +
         geom_point(aes(size = '0.7') ) +
+        geom_text( aes(x=1.5,y=1,label='D)') ) +
         ylim(0 ,1 ) +
         ylab( 'Prop. n_eff issue' )+
         xlab( 'Model' ) +

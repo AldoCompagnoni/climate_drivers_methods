@@ -659,6 +659,57 @@ plot_rhat_neff <- function(ii){
 lapply(1:nrow(input_df), plot_rhat_neff)
 
 
+# PRECIPITATION: big plot across all models and vital rates
+diagnost_df %>% 
+  subset( clim == 'precip' ) %>% 
+  ggplot() +
+  geom_point( aes(n_eff,
+                  Rhat,
+                  color = response),
+              alpha = 0.2) +
+  geom_hline( aes(yintercept = 1.1), 
+              lty = 2) +
+  ylim(1, 1.5) +
+  facet_wrap( ~ model) + 
+  scale_color_viridis_d() +
+  theme( strip.text.y  = element_text( size = 20,
+                                   margin = margin(0.5,0.5,0.5,0.5,
+                                                   'mm') ),
+         strip.text.x  = element_text( size = 10,
+                                       margin = margin(0.5,0.5,0.5,0.5,
+                                                       'mm') ),
+         strip.switch.pad.wrap = unit('0.5',unit='mm'),
+         panel.spacing = unit('0.5',unit='mm') 
+         ) +
+  ggsave(paste0('results/converg/rhat_neff/prec_neff_rhat.tiff'),
+         width=6.3,height=6.3,compression='lzw')
+
+# AIR TEMPERATURE: big plot across all models and vital rates
+diagnost_df %>% 
+  subset( clim == 'airt' ) %>% 
+  ggplot() +
+  geom_point( aes(n_eff,
+                  Rhat,
+                  color = response),
+              alpha = 0.2) +
+  geom_hline( aes(yintercept = 1.1), 
+              lty = 2) +
+  ylim(1, 1.5) +
+  facet_wrap( ~ model) + 
+  scale_color_viridis_d() +
+  theme( strip.text.y  = element_text( size = 20,
+                                   margin = margin(0.5,0.5,0.5,0.5,
+                                                   'mm') ),
+         strip.text.x  = element_text( size = 10,
+                                       margin = margin(0.5,0.5,0.5,0.5,
+                                                       'mm') ),
+         strip.switch.pad.wrap = unit('0.5',unit='mm'),
+         panel.spacing = unit('0.5',unit='mm') 
+         ) +
+  ggsave('results/converg/rhat_neff/airt_neff_rhat.tiff',
+         width=6.3,height=6.3,compression='lzw')
+
+
 
 # plots ------------------------------------------------------------
 prop_div <- diag_df %>% 

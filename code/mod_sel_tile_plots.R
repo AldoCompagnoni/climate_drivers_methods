@@ -294,12 +294,6 @@ for(ii in 1:nrow(input_df) ){
 # provide names to loo tile plots
 loo_l <- setNames(loo_l, input_df$resp_clim)
 
-# common species
-tile_1 <- loo_l['log_lambda'][[1]]
-tile_2 <- loo_l['surv'][[1]]
-tile_3 <- loo_l['grow'][[1]]
-tile_4 <- loo_l['fec'][[1]]
-
 
 # 2. Delta LOOIC plot -----------------------------------------
 
@@ -472,10 +466,10 @@ dev.off()
 
 
 # Air temperature
-p1 <- p_loo(5)
-p2 <- p_loo(6)
-p3 <- p_loo(7)
-p4 <- p_loo(8)
+p5 <- p_loo(5)
+p6 <- p_loo(6)
+p7 <- p_loo(7)
+p8 <- p_loo(8)
 
 # store plots
 tiff( 'results/mod_sel/looic/airt_looic.tiff', 
@@ -484,15 +478,28 @@ tiff( 'results/mod_sel/looic/airt_looic.tiff',
 
 grid.arrange(
      nrow = 1,
-     grobs = list(p1, p2, p3, p4),
+     grobs = list(p5, p6, p7, p8),
      widths = c(1.6, 0.9, 0.9, 0.9),
      layout_matrix = rbind(c(1, 2, 3, 4)) )
 
 dev.off()
 
 
-
 # 
+tiff( 'results/mod_sel/looic/looic.tiff', 
+      unit="in", width=10, height=10, res=600,compression="lzw" )
+
+grid.arrange(
+     nrow = 2, ncol=4,
+     grobs = list(p1, p2, p3, p4,
+                  p5, p6, p7, p8),
+     widths = c(1.6, 0.9, 0.9, 0.9),
+     layout_matrix = rbind(c(1, 2, 3, 4),
+                           c(5, 6, 7, 8)) )
+
+dev.off()
+
+
 # # se_looic by model
 # ggplot(visual_df) +
 #   geom_point( aes(model, se_looic) ) +
@@ -528,18 +535,17 @@ p_elpd <- function(ii){
   response <- names(loo_l)[ii]
 
   tile_df <- loo_l[response][[1]] %>% 
-    mutate( species = substr(species,1,25) ) %>% 
-    rename( z = elpd )
+    mutate( species = substr(species,1,25) )
   
   if(ii == 1 | ii == 5){
   
     p_out <- tile_df %>% 
       ggplot( aes(model, species) ) +
-      geom_tile(aes(fill = z), color = "white") +
+      geom_tile(aes(fill = elpd), color = "white") +
       geom_point(aes(size  = '0.7',
                      shape = mod_rank_elpd),
                  show.legend = F) +
-      scale_fill_viridis( limits = tile_df$z %>% range ) + 
+      scale_fill_viridis( limits = tile_df$elpd %>% range ) + 
       ggtitle( response ) +
       theme(title        = element_text(angle = 0, hjust = 0.5, size = 10),
             legend.title = element_text(size = 10),
@@ -554,11 +560,11 @@ p_elpd <- function(ii){
       
     p_out <- tile_df %>% 
       ggplot( aes(model, species) ) +
-      geom_tile(aes(fill = z), color = "white") +
+      geom_tile(aes(fill = elpd), color = "white") +
       geom_point(aes(size  = '0.7',
                      shape = mod_rank_elpd),
                  show.legend = FALSE) +
-      scale_fill_viridis( limits = tile_df$z %>% range ) + 
+      scale_fill_viridis( limits = tile_df$elpd %>% range ) + 
       ggtitle( response ) +
       theme(title        = element_text(angle = 0, hjust = 0.5, size = 10),
             legend.title = element_text(size = 10),
@@ -595,10 +601,10 @@ dev.off()
   
   
 # Air temperature
-p1 <- p_elpd(5)
-p2 <- p_elpd(6)
-p3 <- p_elpd(7)
-p4 <- p_elpd(8)
+p5 <- p_elpd(5)
+p6 <- p_elpd(6)
+p7 <- p_elpd(7)
+p8 <- p_elpd(8)
 
 # store plots
 tiff( 'results/mod_sel/looic/airt_elpd.tiff', 
@@ -606,10 +612,28 @@ tiff( 'results/mod_sel/looic/airt_elpd.tiff',
       height=6.3, res=600,compression="lzw" )
 
 grid.arrange(
-     nrow = 1,
+     nrow = 1, 
      grobs = list(p1, p2, p3, p4),
      widths = c(1.6, 0.9, 0.9, 0.9),
      layout_matrix = rbind(c(1, 2, 3, 4)) )
+
+dev.off()
+    
+
+
+
+# store plots
+tiff( 'results/mod_sel/looic/elpd.tiff', 
+      unit="in", width=10, 
+      height=10, res=600,compression="lzw" )
+
+grid.arrange(
+     nrow = 2, ncol=4,
+     grobs = list(p1, p2, p3, p4,
+                  p5, p6, p7, p8),
+     widths = c(1.6, 0.9, 0.9, 0.9),
+     layout_matrix = rbind(c(1, 2, 3, 4),
+                           c(5, 6, 7, 8)) )
 
 dev.off()
     

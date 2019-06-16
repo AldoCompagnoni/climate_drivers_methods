@@ -672,6 +672,8 @@ diagnost_df %>%
   ylim(1, 1.5) +
   facet_wrap( ~ model) + 
   scale_color_viridis_d() +
+  ylab( expression(hat(R)) ) +
+  xlab( 'Effective sample size' ) +
   theme( strip.text.y  = element_text( size = 20,
                                    margin = margin(0.5,0.5,0.5,0.5,
                                                    'mm') ),
@@ -697,6 +699,8 @@ diagnost_df %>%
   ylim(1, 1.5) +
   facet_wrap( ~ model) + 
   scale_color_viridis_d() +
+  ylab( expression(hat(R)) ) +
+  xlab( 'Effective sample size' ) +
   theme( strip.text.y  = element_text( size = 20,
                                    margin = margin(0.5,0.5,0.5,0.5,
                                                    'mm') ),
@@ -708,6 +712,34 @@ diagnost_df %>%
          ) +
   ggsave('results/converg/rhat_neff/airt_neff_rhat.tiff',
          width=6.3,height=6.3,compression='lzw')
+
+
+# ACROSS temperature and precipitation 
+ggplot(diagnost_df) +
+  geom_point( aes(n_eff,
+                  Rhat,
+                  color = response),
+              alpha = 0.2) +
+  geom_hline( aes(yintercept = 1.1), 
+              lty = 2) +
+  ylim(1, 1.5) +
+  facet_wrap( ~ model) + 
+  scale_color_viridis_d() +
+  ylab( expression(hat(R)) ) +
+  xlab( 'Effective sample size' ) +
+  theme( strip.text.y  = element_text( size = 20,
+                                   margin = margin(0.5,0.5,0.5,0.5,
+                                                   'mm') ),
+         strip.text.x  = element_text( size = 10,
+                                       margin = margin(0.5,0.5,0.5,0.5,
+                                                       'mm') ),
+         strip.switch.pad.wrap = unit('0.5',unit='mm'),
+         panel.spacing = unit('0.5',unit='mm') 
+         ) +
+  ggsave('results/converg/rhat_neff/neff_rhat.tiff',
+         width=6.3,height=6.3,compression='lzw')
+
+
 
 
 

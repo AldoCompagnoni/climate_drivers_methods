@@ -417,7 +417,7 @@ clim  <- data.table::fread(paste0('data/',clim_var,"_chelsa_prism_hays_2014.csv"
 
 # calculate p-values
 bayes_p_l <- lapply(1:nrow(cases_df), bayes_p_val)
-bayes_p   <- bind_rows(bayes_p_l)
+bayes_p   <- bind_rows(bayes_p_l) 
 
 # save run (takes too long to let it go!)
 saveRDS(bayes_p, paste0('results/checks/',
@@ -456,3 +456,51 @@ bayes_p %>%
                  'llam_spp.tiff'),
           width=6.3, height=6.3, compression='lzw')
   
+
+# make one big graph! -----------------------------------------
+
+# order of models
+mod_ordr <- c('ctrl1',  'yr1', 'yr2', 'yr3',
+              'gaus',   'expp',
+              'gaus_n', 'expp_n', 'simpl_n',
+              'mb_h',    'mb',
+              'mb_h_n',  'mb_n')
+
+
+bayes_at  <- readRDS( paste0('results/checks/airt_p_val.rds') ) %>%
+                mutate( mod = as.character(mod) ) %>% 
+                mutate( mod = factor(mod, levels = mod_ordr) )
+bayes_pr  <- readRDS( paste0('results/checks/precip_p_val.rds') ) %>%
+                mutate( mod = as.character(mod) ) %>%  
+                mutate( mod = factor(mod, levels = mod_ordr) )
+bayes_all <- bind_rows( bayes_at, bayes_pr ) %>% 
+                mutate( clim_var = replace(clim_var, 
+                                           clim_var == 'airt',
+                                           'Air temperature') ) %>% 
+                mutate( clim_var = replace(clim_var, 
+                                           clim_var == 'precip',
+                                           'Precipitation') ) 
+
+
+# p_value by model 
+ggplot(bayes_all, 
+       aes( x = mod,
+            y = p_val,
+            color = clim_var) ) +
+  geom_point( position = position_jitter(w=0.06,h=0),
+              alpha = 0.5) +
+  geom_hline( yintercept = 0.025, lty=2  ) +
+  geom_hline( yintercept = 0.975, lty=2  ) +
+  scale_color_viridis_d() +
+  theme( axis.text.x = element_text( angle=90,
+                                     hjust=1,
+                                     vjust=0.5),
+         legend.title = element_text("Clim. var.") ) +
+  ylab( 'Bayesian P-value' ) +
+  xlab( 'Model' ) +
+  labs( color = 'Predictor') +
+  ggsave( 'results/checks/p_val_llam_mod.tiff',
+          width=6.3, height=4, compression='lzw')
+
+#   
+(sum(bayes_all$p_val > 0.975) + sum(bayes_all$p_val < 0.025)) / nrow(bayes_all)

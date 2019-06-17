@@ -372,10 +372,10 @@ dev.off()
 
 
 # store precipitation results
-p1 <- p_delta_z(5)
-p2 <- p_delta_z(6)
-p3 <- p_delta_z(7)
-p4 <- p_delta_z(8)
+p5 <- p_delta_z(5)
+p6 <- p_delta_z(6)
+p7 <- p_delta_z(7)
+p8 <- p_delta_z(8)
 
 # store plot results 
 tiff( 'results/mod_sel/looic/airt_delta_looic.tiff', 
@@ -389,6 +389,25 @@ grid.arrange(
      layout_matrix = rbind(c(1, 2, 3, 4)) )
 
 dev.off()
+
+
+
+# store plot results 
+tiff( 'results/mod_sel/looic/delta_looic.tiff', 
+      unit="in", width=10, 
+      height=10, res=600,compression="lzw" )
+
+grid.arrange(
+     nrow = 2, 
+     grobs = list(p1, p2, p3, p4,
+                  p5, p6, p7, p8),
+     widths = c(1.6, 0.9, 0.9, 0.9),
+     layout_matrix = rbind(c(1, 2, 3, 4),
+                           c(5, 6, 7, 8)) )
+
+dev.off()
+
+
 
 
 # 3. Delta LOOIC plot  ------------------------------------------

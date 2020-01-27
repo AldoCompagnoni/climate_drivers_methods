@@ -8,49 +8,39 @@ data {
 
 parameters {
   
-  real mu;                //intercept
+  real alpha;             //intercept
 	real<lower = 0> sigma2; //error variance
-	vector[n_lag] beta;         // regression parameters
+	vector[n_lag] beta;     // regression parameters
 	//hyperparameters prior
   real<lower = 0> lambda; //penalty parameter
   
-  // real alpha;
-  // real<lower=0> y_sd;
-  // real<lower=0> sigma_beta;
-  // vector[n_lag] z;    // unit normal prior for non-centered term
 }
 
 transformed parameters {
   
   real<lower = 0> tau2; //prior variance
-	real<lower = 0> sigma; //error sd
-	vector[n_time] linpred; //mean normal model
+	real<lower = 0> y_sd; //error sd (for function "normal")
+	vector[n_time] yhat; //mean normal model
 	
+	yhat    = alpha + clim * beta;
 	tau2    = sigma2/lambda;
-	sigma   = sqrt(sigma2);
-  linpred = mu + clim * beta;
+	y_sd    = sqrt(sigma2);
   
-  // vector[n_time] yhat;
-  // vector[n_lag] beta;
-  
-  // // non-centered parameterization
-  // beta = sigma_beta * z;
-  // 
-  // // linear predictor
-  // yhat = alpha + clim * beta;
 }
 
 model {
   
-  //prior regression coefficients: ridge
+  // prior regression coefficients: ridge
 	beta   ~ normal(0, sqrt(tau2));
 	lambda ~ cauchy(0, 1);
 	
- //priors nuisance parameters: uniform on log(sigma^2) & mu
-	target += -2 * log(sigma); 
+  //priors nuisance parameters: uniform on log(sigma^2) & mu
+	target += -2 * log(y_sd); 
 	
-  //likelihood
-  y ~ normal(linpred, sigma);
+	// priors
+  sigma2  ~ inv_gamma(0.01,0.01); // this is a variance
+  
+  y ~ normal(yhat, y_sd);
   
 }
 
@@ -67,7 +57,7 @@ model {
 
 // generated quantities {
 //   vector[n_time] log_lik;
-//   
+// 
 //   for (n in 1:n_time) {
 //     log_lik[n] = normal_lpdf(y[n] | yhat[n], y_sd);
 //   }

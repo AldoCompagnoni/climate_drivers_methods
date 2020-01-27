@@ -11,7 +11,7 @@ parameters {
   
   real alpha;
   real beta;
-  real<lower=0.1> y_sd;       // Flower-to-fruit overdispersion parameter
+  real<lower=0.1> y_sd;
   
 }
 

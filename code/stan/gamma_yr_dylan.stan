@@ -8,7 +8,7 @@ data {
 parameters {
   real alpha;
   real beta;
-  real<lower=0> sigma2;
+  real<lower=0> phi;
 }
 
 transformed parameters {
@@ -23,8 +23,8 @@ transformed parameters {
   for(n in 1:n_time){
     // Parameters A and B 
     // "Correct" parameterization
-    A[n]      = square(yhat[n]) / sigma2;
-    B[n]      = yhat[n] / sigma2;
+    A[n]      = yhat[n]*phi;
+    B[n]      = phi;
   }
   
 }
@@ -34,7 +34,7 @@ model {
   // parameters of data model
   alpha   ~ normal(0, 2);
   beta    ~ normal(0, 2);
-  sigma2  ~ gamma(1,1); 
+  phi      ~ gamma(1,1); 
 
   y ~ gamma(A, B);
 }

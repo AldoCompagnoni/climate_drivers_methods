@@ -22,9 +22,11 @@ transformed parameters {
   // beta reparameterization
   for(n in 1:n_time){
     // Parameters A and B 
-    // "Correct" parameterization
-    A[n]      = square(yhat[n]) / sigma2;
-    B[n]      = yhat[n] / sigma2;
+    
+    // BRMS parameterization
+    A[n]      = sigma2;
+    B[n]      = sigma2 ./ yhat[n];
+    
   }
   
 }
@@ -34,7 +36,7 @@ model {
   // parameters of data model
   alpha   ~ normal(0, 2);
   beta    ~ normal(0, 2);
-  sigma2  ~ gamma(1,1); 
+  sigma2  ~ gamma(0.01,0.01); 
 
   y ~ gamma(A, B);
 }

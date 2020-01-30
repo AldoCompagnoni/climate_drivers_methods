@@ -1,4 +1,7 @@
 # Simulation to test performance of horseshoe and lasso regression
+# 1. Simulation study for glmnet
+# 2. Retrieve betas using glmnet, BRMS-horseshoe, and BRMS-lasso
+# 3. Does glmnet is > NULL in cross-validation?
 rm(list=ls())
 source("code/format_data.R")
 library(dplyr)
@@ -14,9 +17,9 @@ library(glmnet)
 library(ggthemes)
 
 
-# simulate normal data ----------------------------------------------------
+# 1. Simulation study for glmnet ---------------------------
 
-# function to simulate normal data
+# MASTER FUNCTION to simulate normal data
 sim_norm<- function(nobs, reps, cfs, variance, cov_mat){
   
   nvar  <- length(cfs)  
@@ -69,6 +72,9 @@ ridge_rmse <- function( ii ){
               b_t     = betas,
               b_e     = beta_est )
   
+  # cross-validation 
+  
+  
 }
 
 # replicate even the cross-validation
@@ -81,8 +87,8 @@ rep_crval <- function( tt ){
 }
 
 # run many simulations
-prova_df <- lapply(1:80, rep_crval)
-prova_df <- do.call( rbind, prova_df)
+prova_df <- lapply( 1:80, rep_crval )
+prova_df <- do.call( rbind, prova_df )
 
 # see increase in 
 prova_df %>% 
@@ -104,24 +110,9 @@ prova_df %>%
         color = 'Reps (Spatial)' ) +
   ggsave( 'results/simulations/R2_by_rep.tiff',
           width = 6.3, height = 5 )
-  
-subset(prova_df,
-       yr == 10 & sp_reps == 3 ) %>%
-  ggplot() +
-  geom_point( aes(b_t, b) )
-  
-  
-prova_df %>% 
-  subset( yr == 5 ) %>% 
-  mutate( rep = yr * sp_reps ) %>% 
-  subset( b_t != 0 ) %>% 
-  ggplot( aes( x = b_t,
-               y = b_e ) ) +
-  # geom_jitter( width=0.01 ) +
-  geom_point( aes( color = rep) ) +
-  # geom_jitter( width=0.0001 ) +
-  scale_color_viridis_c()
 
+
+# 2. Retrieve betas using glmnet, BRMS-horseshoe, and BRMS-lasso -----
 
 # estimate values using BRMS
 est_brms <- function( ii ){
@@ -174,12 +165,11 @@ est_brms <- function( ii ){
   data.frame( ds     = ii,
               lasso  = summary(beta_lasso)$fixed[,'Estimate'],
               horse  = summary(beta_horse)$fixed[,'Estimate'],
-              glmnet = beta_net
+              glmnet = beta_net,
+              true   = c( 0, 0.05, 0.05, 0, 0, -0.05, rep(0, 31) )
              )
     
 }
-
-cia <- est_brms(1)
 
 # run estimation
 est_l   <- lapply(1:30, est_brms)
@@ -192,10 +182,9 @@ true_df <- expand.grid( ds    = c( 1:30 ),
                         order = c( 1:37 ) ) %>% 
              inner_join( beta_df ) %>% 
              arrange( order )  
-plot_df <- inner_join( est_df, true_df) 
 
-r2_df   <- plot_df %>% 
-            inner_join( glmnet_df ) %>% 
+# final file for plotting
+r2_df <- inner_join( est_df, true_df) %>% 
             # subset( order %in% c(1,2,3,6) ) %>% 
             group_by( ds ) %>% 
             summarise( r2_lasso  = lm( lasso ~ betas) %>% 
@@ -215,8 +204,97 @@ ggplot(r2_df) +
   theme_minimal() +
   labs( x = 'Model type', 
         y = expression('R'^2) ) +
-  ggsave('results/simulations/regularization/horse_lasso_30yr_2rep.tiff',
+  ggsave('results/simulations/regularization/horse_lasso_glmnet_30yr_2rep.tiff',
          width = 6.3, height = 6.3, compression='lzw')
+
+
+# 3. Does glmnet is > NULL in cross-validation? --------------------
+
+
+# MASTER FUNCTION to simulate normal data
+sim_norm <- function(nobs, reps, cfs, variance, cov_mat){
+  
+  nvar  <- length(cfs)  
+  beta  <- as.matrix(cfs)
+  X     <- mvrnorm( nobs, 
+                    mu    = rep(0, nvar), 
+                    Sigma = cov_mat )
+  
+  mu    <- ( X %*% beta )  # add noise if desired + rnorm(N, sd<-.01)
+  
+  sp_reps <- function( ii ){
+    
+    X %>% 
+      as.data.frame %>% 
+      mutate( y   = rnorm(nobs, mu, variance),
+              yr  = 1:nobs,
+              rep = ii )
+    
+  }
+  
+  lapply(1:reps, sp_reps) %>% bind_rows
+  
+}
+
+# design matrix
+design_df <- expand.grid( yr      = c(20:30),
+                          sp_reps = c(1:5) )
+
+# ridge regression
+cv_ridge_null <- function( ii ){
+  
+  betas   <- c( 0.05, 0.05, 0, 0, -0.05, rep(0, 31) )
+  
+  norm_df <- sim_norm( nobs     = design_df$yr[ii], 
+                       reps     = design_df$sp_reps[ii],
+                       cfs      = betas, 
+                       variance = 0.05, 
+                       cov_mat  = diag(36) )
+  
+  # leave-one-year-out cross-validation
+  cval <- function( yr_i ){
+    
+    train_df <- subset(norm_df, !(yr %in% yr_i) )
+    test_df  <- subset(norm_df, yr == yr_i )  
+    des_df   <- cbind(1, dplyr::select(test_df, V1:V36)) %>% 
+                  as.matrix
+    
+    # prepare data
+    preds <- dplyr::select(train_df, V1:V36) %>% as.matrix
+    y_v   <- train_df$y
+    
+    # glmnet prediction
+    cvfit <- cv.glmnet(x = preds, y = y_v, 
+                       family = "gaussian",n=15,alpha=c(1),keep=T)
+    beta_est <- coef(cvfit, s = cvfit$lambda.1se)[,1]
+    pred_reg <- as.numeric(des_df %*% beta_est)
+    
+    # Null model prediction
+    pred_0   <- predict( lm( y_v ~ 1, data = train_df), 
+                         newdata = test_df)
+    
+    data.frame( pred_r = test_df$y - pred_reg,
+                pred_0 = test_df$y - pred_0 )
+                
+  }
+  
+  pred_v <- lapply(1:design_df$yr[ii], cval) %>% 
+              bind_rows() %>% 
+              apply(2, mean ) %>% 
+              `^` (2) %>% 
+              sqrt
+  
+  data.frame( pred_0   = pred_v[2],
+              pred_reg = pred_v[1],
+              nobs     = design_df$yr[ii], 
+              reps     = design_df$sp_reps[ii] )
+    
+}
+
+cia <- lapply(1:55, cv_ridge_null)
+bind_rows(cia) %>% 
+  mutate( sel = pred_0 < pred_reg )
+
 
 
 # estimate values using BRMS
@@ -249,6 +327,7 @@ est_glmnet <- function( ii ){
               glmnet  = beta_est )
   
 }
+
 
 glmnet_df <- lapply(1:30, est_glmnet) %>% bind_rows
 

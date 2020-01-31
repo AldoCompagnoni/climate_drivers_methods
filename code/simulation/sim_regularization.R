@@ -87,11 +87,11 @@ rep_crval <- function( tt ){
 }
 
 # run many simulations
-prova_df <- lapply( 1:80, rep_crval )
-prova_df <- do.call( rbind, prova_df )
+en_l  <- lapply( 1:80, rep_crval )
+en_df <- do.call( rbind, en_l )
 
-# see increase in 
-prova_df %>% 
+# plot R2 versus sample sizes
+en_df %>% 
   group_by( yr, sp_reps ) %>% 
   # summarise( met = lm(b_e ~ b_t) %>% coef %>% .[2] ) %>%
   summarise( met = lm(b_e ~ b_t) %>% summary %>% .$r.squared ) %>%

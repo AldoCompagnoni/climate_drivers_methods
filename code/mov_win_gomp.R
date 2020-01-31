@@ -3,12 +3,15 @@ library(climwin)
 library(dplyr)
 library(tidyr)
 library(magrittr)
+library(glmnet)
 #source("Analysis/functions_gomperz.R")
 
+in_dir <- 'C:/Users/ac22qawo/Dropbox/popler/LTER/Data/Cedar Creek'
+
 # read data ------------------------------------------------------------
-pop   <- read.csv("C:/cloud/MEGA/Projects/LTER/Data/Cedar Creek/cdr_popler.csv",
+pop   <- read.csv( paste0(in_dir,"/cdr_popler.csv"),
                   stringsAsFactors = F)
-clm   <- read.csv("C:/cloud/MEGA/Projects/LTER/Data/Cedar Creek/DailyClimateSummary.csv",
+clm   <- read.csv( paste0(in_dir,"/DailyClimateSummary.csv"),
                   stringsAsFactors = F)
 fire  <- list(year = c(1982:2004),
               fire =  c(2005:2014))
@@ -73,17 +76,17 @@ pop_1 <- pop %>%
 # data at time step Nt1
 pop_2 <- pop
 
-# 
+# Gompertz model
 gomp  <- merge(pop_1, pop_2) %>% 
           mutate(Xt0 = log(Nt0),
-                Xt1 = log(Nt1)) %>% 
+                 Xt1 = log(Nt1)) %>% 
           # fire
           mutate(fire = year) %>% 
           mutate(fire = replace(year, year < 2005, 0) ) %>% 
           mutate(fire = replace(fire, year>2004 ,1) ) %>% 
           left_join(prec_mat) %>% 
           # select Poa
-          subset( genus == 'Poa' & species == 'pratensis' ) %>% 
+          # subset( genus == 'Poa' & species == 'pratensis' ) %>% 
           # collapse two replication levels
           mutate( site = paste0(spatial_replication_level_1,
                                 spatial_replication_level_2) ) %>% 
@@ -95,6 +98,27 @@ gomp  <- merge(pop_1, pop_2) %>%
 # isolate climate in its own data frame
 clim_df <- gomp %>% select(V1:V36)
 
+# glmnet -----------------------------------------------------------------
+
+# prepare data
+preds <- gomp %>% 
+          select(V1:V24) %>% 
+          apply(2, scale ) %>% 
+          as.matrix
+y_v   <- gomp$Xt1-gomp$Xt0
+
+# crossvalidation
+cvfit <- cv.glmnet(x = preds, y = y_v, 
+                   family = "gaussian",n=15,alpha=c(1),keep=T)
+
+beta_est <- coef(cvfit, s = cvfit$lambda.min)[,1][-1]
+
+plot(beta_est, type='b')
+plot(gomp$Nt1 ~ gomp$Nt0)
+
+
+
+# stan models ------------------------------------------------------------
 
 dat_stan <- list(
   n_time  = nrow(clim_df),

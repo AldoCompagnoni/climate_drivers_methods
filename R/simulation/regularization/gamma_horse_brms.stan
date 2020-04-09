@@ -21,7 +21,6 @@ functions {
     return zb .* lambda_tilde * tau;
   }
 }
-
 data {
   int<lower=1> N;  // number of observations
   vector[N] y;  // response variable
@@ -43,17 +42,20 @@ parameters {
   // horseshoe shrinkage parameters
   real<lower=0> hs_global[2];  // global shrinkage parameters
   real<lower=0> hs_c2;  // slab regularization parameter
-  real<lower=0> sigma;  // residual SD
+  real<lower=0> shape;  // shape parameter
 }
-
 transformed parameters {
   vector[K] b;  // population-level effects
-  vector[N] yhat;
   // compute actual regression coefficients
-  b    = horseshoe(zb, hs_local, hs_global, hs_scale_global * sigma, hs_scale_slab^2 * hs_c2);
-  yhat = Intercept + X * b;
+  b = horseshoe(zb, hs_local, hs_global, hs_scale_global, hs_scale_slab^2 * hs_c2);
 }
 model {
+  // initialize linear predictor term
+  vector[N] mu = Intercept + X * b;
+  for (n in 1:N) {
+    // apply the inverse link function
+    mu[n] = shape * exp(-(mu[n]));
+  }
   // priors including all constants
   target += normal_lpdf(zb | 0, 1);
   target += normal_lpdf(hs_local[1] | 0, 1)
@@ -64,9 +66,7 @@ model {
     - 1 * log(0.5);
   target += inv_gamma_lpdf(hs_global[2] | 0.5 * hs_df_global, 0.5 * hs_df_global);
   target += inv_gamma_lpdf(hs_c2 | 0.5 * hs_df_slab, 0.5 * hs_df_slab);
-  target += student_t_lpdf(sigma | 3, 0, 10)
-    - 1 * student_t_lccdf(0 | 3, 0, 10);
+  target += gamma_lpdf(shape | 0.01, 0.01);
   // likelihood including all constants
-  y ~ normal( yhat, sigma);
-  
+  target += gamma_lpdf(y | shape, mu);
 }

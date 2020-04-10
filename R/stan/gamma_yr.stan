@@ -1,6 +1,7 @@
 
 data {
   int n_time;
+  int K;
   vector[n_time] y;
   vector[n_time] clim_means;
 }
@@ -8,40 +9,28 @@ data {
 parameters {
   real alpha;
   real beta;
-  real<lower=0> sigma2;
+  real<lower=0> y_sd;
 }
 
 transformed parameters {
   // place holder  
-  vector[n_time] yhat; // transf. lin. pred. for mean
-  real<lower=0> A[n_time];    // parameter for beta distn
-  real<lower=0> B[n_time];    // parameter for beta distn
+  vector[n_time] yhat; // transformed linear predictor for mean of beta distribution
+  vector<lower=0>[n_time] B;          // parameter for gamma distn
   
-  yhat = exp(alpha + clim_means * beta);
-  
-  // beta reparameterization
-  for(n in 1:n_time){
-    // Parameters A and B 
-    // "Correct" parameterization
-    A[n]      = square(yhat[n]) / sigma2;
-    B[n]      = yhat[n] / sigma2;
-  }
+  yhat  = exp(alpha + clim_means * beta);
+  B     = y_sd ./ yhat;
   
 }
 
-
 model {
-  // parameters of data model
-  alpha   ~ normal(0, 2);
-  beta    ~ normal(0, 2);
-  sigma2  ~ gamma(1,1); 
 
-  y ~ gamma(A, B);
+  y ~ gamma(y_sd, B);
+  
 }
 
 generated quantities {
   vector[n_time] log_lik;
-
+  
   for (n in 1:n_time)
-    log_lik[n] = gamma_lpdf( y[n] | A[n], B[n] );
+    log_lik[n] = gamma_lpdf(y[n] | y_sd, B[n]);
 }

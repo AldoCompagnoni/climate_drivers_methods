@@ -15,20 +15,18 @@ parameters {
 
 transformed parameters {
   vector[n_time] x;
+  vector[n_time] yhat;    // transformed linear predictor for mean of beta distribution
   
   for(i in 1:n_time)
     x[i] = sum(theta .* clim[,i]);
+    
+  yhat = exp(alpha + x * beta);
+    
 }
 
 model {
-  // place holder  
-  vector[n_time] mu;    // transformed linear predictor for mean of beta distribution
-  
   // likelihood
-  for(n in 1:n_time)
-    mu[n] = exp(alpha + x[n] * beta);
-    
-  y ~ gamma(y_sd, y_sd ./ mu);
+  y ~ gamma(y_sd, y_sd ./ yhat);
 }
 
 generated quantities {

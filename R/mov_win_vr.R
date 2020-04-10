@@ -8,17 +8,12 @@ library(testthat)
 library(rstan)
 library(loo)
 
-# install_version("ggplot2", version = "0.9.1", repos = "http://cran.us.r-project.org")
-# devtools::install_version("rstan", 
-#                 version = "2.8.1", 
-#                 repos = "http://cran.us.r-project.org")
-
 # set rstan options
 rstan_options( auto_write = TRUE )
 options( mc.cores = parallel::detectCores() )
 
 # climate predictor, response, months back, max. number of knots
-response  <- "fec"
+response  <- "surv"
 clim_var  <- "precip"
 m_back    <- 36    
 st_dev    <- FALSE
@@ -41,7 +36,7 @@ if( response == "log_lambda" )                             family = "normal"
 expp_beta     <- 20
 
 # set species (I pick Sphaeraclea_coccinea)
-ii            <- 39
+ii            <- 37
 spp_name      <- spp[ii]
 
 # lambda data
@@ -113,10 +108,17 @@ dat_stan <- list(
                   rowMeans(mod_data$climate[,13:24]),
                   rowMeans(mod_data$climate[,25:36]) ) %>% do.call(rbind,.),
   M       = 12,    # number of months in a year
-  K       = ncol(mod_data$climate) / 12,
+  K       = ncol(mod_data$climate) / 12, # number of years
+  MM      = ncol(mod_data$climate), # total number of months
   S       = mod_data$resp$population %>% unique %>% length,
   site_i  = mod_data$resp$population %>% as.factor %>% as.numeric,
-  expp_beta = expp_beta
+  expp_beta = expp_beta,
+  # parameters for horseshoe models
+  hs_df           = 1,   # variance of 
+  hs_df_global    = 1,   # 
+  hs_df_slab      = 25,   # slab degrees of freedom
+  hs_scale_global = (4 / (36-4)) / sqrt(nrow(mod_data$climate)), # global prior scale
+  hs_scale_slab   = 2    # slab prior scale
 )
 
 # simulation parameters
@@ -129,25 +131,11 @@ sim_pars <- list(
 
 
 # NULL model (model of the mean)
-fit_ridge <- stan(
-  file = paste0("code/stan/",family,"_ridge.stan"),
-  data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd',
-           'yhat'),
-  warmup = sim_pars$warmup,
-  iter = sim_pars$iter,
-  thin = sim_pars$thin,
-  chains = sim_pars$chains
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
-)
-
-
-# NULL model (model of the mean)
 fit_ctrl1 <- stan(
-  file = paste0("code/stan/",family,"_null.stan"),
+  file = paste0("R/stan/",family,"_null.stan"),
   data = dat_stan,
   pars = c('alpha', 'y_sd', 
-           'yhat', 'log_lik'),
+           'yhat',  'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -158,7 +146,7 @@ fit_ctrl1 <- stan(
 # year t
 dat_stan$clim_means  <- rowMeans(mod_data$climate[,1:12 ])
 fit_yr1 <- stan(
-  file = paste0("code/stan/",family,"_yr.stan"),
+  file = paste0("R/stan//",family,"_yr.stan"),
   data = dat_stan,
   pars = c('alpha', 'beta', 'y_sd', 
            'yhat','log_lik'),
@@ -169,20 +157,10 @@ fit_yr1 <- stan(
   control = list(adapt_delta = 0.99)
 )
 
-# # beta check
-# plot(dat_stan$clim_means,
-#      dat_stan$y)
-# x_seq <- seq(min(dat_stan$clim_means),
-#              max(dat_stan$clim_means), 
-#              length.out = 100)
-# a <- fit_yr1 %>% summary %>% .$summary %>% .[,'mean'] %>% .['alpha']
-# b <- fit_yr1 %>% summary %>% .$summary %>% .[,'mean'] %>% .['beta']     
-# lines(x_seq, boot::inv.logit(a + b*x_seq))
-
 # year t-1
 dat_stan$clim_means  <- rowMeans(mod_data$climate[,13:24])
 fit_yr2 <- stan(
-  file = paste0("code/stan/",family,"_yr.stan"),
+  file = paste0("R/stan/",family,"_yr.stan"),
   data = dat_stan,
   pars = c('alpha', 'beta', 'y_sd', 
            'yhat','log_lik'),
@@ -196,7 +174,7 @@ fit_yr2 <- stan(
 # year t-2
 dat_stan$clim_means  <- rowMeans(mod_data$climate[,25:36])
 fit_yr3 <- stan(
-  file = paste0("code/stan/",family,"_yr.stan"),
+  file = paste0("R/stan/",family,"_yr.stan"),
   data = dat_stan,
   pars = c('alpha', 'beta', 'y_sd', 
            'yhat','log_lik'),
@@ -208,9 +186,12 @@ fit_yr3 <- stan(
 )
 dat_stan$clim_means  <- rowMeans(mod_data$climate)
 
-# gaussian moving window
-fit_gaus <- stan(
-  file = paste0("code/stan/",family,"_gaus.stan"),
+
+# gaussian moving window in year t
+dat_stan$clim   <- mod_data$climate[,1:12]
+dat_stan$n_lag  <- 12
+fit_gaus1 <- stan(
+  file = paste0("R/stan/",family,"_gaus.stan"),
   data = dat_stan,
   pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 
            'yhat','log_lik'), #
@@ -221,12 +202,13 @@ fit_gaus <- stan(
   control = list(adapt_delta = 0.99)
 )
 
-# exponential power moving window
-fit_expp <- stan(
-  file = paste0("code/stan/",family,"_expp.stan"),
+# gaussian moving window in year t-1
+dat_stan$clim   <- mod_data$climate[,13:24]
+fit_gaus2 <- stan(
+  file = paste0("R/stan/",family,"_gaus.stan"),
   data = dat_stan,
   pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 
-           'yhat', 'log_lik'), #'log_lik'
+           'yhat','log_lik'), #
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -234,34 +216,110 @@ fit_expp <- stan(
   control = list(adapt_delta = 0.99)
 )
 
-# moving beta hierarchical
-fit_mb_h <- stan(
-  file = paste0("code/stan/",family,"_ridge.stan"),
+# gaussian moving window in year t-2
+dat_stan$clim   <- mod_data$climate[,25:36]
+fit_gaus3 <- stan(
+  file = paste0("R/stan/",family,"_gaus.stan"),
   data = dat_stan,
-  pars = 'beta',
-  # pars = c('alpha', 'beta', 'y_sd', 'sigma_beta', 
-  #          'yhat', 'log_lik'),
+  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 
+           'yhat','log_lik'), #
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
-  chains = 1 #sim_pars$chains,
-  # control = list(adapt_delta = 0.99)
+  chains = sim_pars$chains,
+  control = list(adapt_delta = 0.99)
+)
+
+# simplex year t
+dat_stan$clim   <- t(mod_data$climate[,1:12])
+fit_simpl1 <- stan(
+  file = paste0("R/stan/",family,"_dirichlet.stan"),
+  data = dat_stan,
+  pars = c('theta', 'alpha', 'beta', 'y_sd', 
+           'yhat',  'log_lik'),
+  warmup = sim_pars$warmup,
+  iter = sim_pars$iter,
+  thin = sim_pars$thin,
+  chains = sim_pars$chains#,
+  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
+)
+
+# simplex year t-1
+dat_stan$clim   <- t(mod_data$climate[,13:24])
+fit_simpl2 <- stan(
+  file = paste0("R/stan/",family,"_dirichlet.stan"),
+  data = dat_stan,
+  pars = c('theta', 'alpha', 'beta', 'y_sd', 
+           'yhat',  'log_lik'),
+  warmup = sim_pars$warmup,
+  iter = sim_pars$iter,
+  thin = sim_pars$thin,
+  chains = sim_pars$chains#,
+  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
+)
+
+# simplex year t-2
+dat_stan$clim   <- t(mod_data$climate[,25:36])
+fit_simpl3 <- stan(
+  file = paste0("R/stan/",family,"_dirichlet.stan"),
+  data = dat_stan,
+  pars = c('theta', 'alpha', 'beta', 'y_sd', 
+           'yhat',  'log_lik'),
+  warmup = sim_pars$warmup,
+  iter = sim_pars$iter,
+  thin = sim_pars$thin,
+  chains = sim_pars$chains#,
+  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
+)
+
+# Ridge regression at time t
+dat_stan$clim   <- mod_data$climate[,1:12]
+dat_stan$MM     <- 12
+fit_ridge1 <- stan(
+  file = paste0("R/stan/",family,"_horse.stan"),
+  data = dat_stan,
+  pars = c('alpha', 'beta', 'y_sd', 'yhat', 'log_lik'),
+  warmup = sim_pars$warmup,
+  iter = sim_pars$iter,
+  thin = sim_pars$thin,
+  chains = sim_pars$chains,
+  control = list(adapt_delta = 0.99, stepsize = 0.001, max_treedepth = 20)
+)
+
+# Ridge regression at time t-1
+dat_stan$clim   <- mod_data$climate[,13:24]
+fit_ridge2 <- stan(
+  file = paste0("R/stan/",family,"_horse.stan"),
+  data = dat_stan,
+  pars = c('alpha', 'beta', 'y_sd', 'yhat', 'log_lik'),
+  warmup = sim_pars$warmup,
+  iter = sim_pars$iter,
+  thin = sim_pars$thin,
+  chains = sim_pars$chains,
+  control = list(adapt_delta = 0.99, stepsize = 0.001, max_treedepth = 20)
+)
+
+# Ridge regression at time t-2
+dat_stan$clim   <- mod_data$climate[,25:36]
+fit_ridge3 <- stan(
+  file = paste0("R/stan/",family,"_horse.stan"),
+  data = dat_stan,
+  pars = c('alpha', 'beta', 'y_sd', 'yhat', 'log_lik'),
+  warmup = sim_pars$warmup,
+  iter = sim_pars$iter,
+  thin = sim_pars$thin,
+  chains = sim_pars$chains,
+  control = list(adapt_delta = 0.99, stepsize = 0.001, max_treedepth = 20)
 )
 
 
-dat_stan %>% names
-fit   <- glmnet(x=as.matrix(dat_stan$clim), y=dat_stan$y, alpha=0)
-cvfit <- cv.glmnet(x=as.matrix(dat_stan$clim), y=dat_stan$y, n=15, alpha=0)
-opt.lam = c(cvfit$lambda.min, cvfit$lambda.1se) 
-coef(cvfit, s = opt.lam)[-1,1] %>% plot(type='l')
-abline(h=0)
-
-
-# moving beta correlated
-fit_mb <- stan(
-  file = paste0("code/stan/",family,"_movbeta.stan"),
+# gaussian moving window ALL THREE YEARS
+dat_stan$clim   <- mod_data$climate
+dat_stan$n_lag  <- 36
+fit_gaus_all <- stan(
+  file = paste0("R/stan/",family,"_gaus.stan"),
   data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd', 'mu_beta', 
+  pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 
            'yhat','log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
@@ -270,45 +328,29 @@ fit_mb <- stan(
   control = list(adapt_delta = 0.99)
 )
 
-# moving beta hierarchical
-fit_mb_h_n <- stan(
-  file = paste0("code/stan/",family,"_movbeta_h_nest.stan"),
+# Ridge ALL YEARS
+dat_stan$MM   <- 36
+fit_ridge_all <- stan(
+  file = paste0("R/stan/",family,"_horse.stan"),
   data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd', 'mu_beta', 'sigma_beta', 'theta_y',
-           'yhat','log_lik'),
+  pars = c('alpha', 'beta', 'y_sd', 'yhat', 'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
   chains = sim_pars$chains,
-  control = list(adapt_delta = 0.99)
+  control = list(adapt_delta = 0.99, stepsize = 0.001, max_treedepth = 20)
 )
 
-# moving beta correlated
-fit_mb_n <- stan(
-  file = paste0("code/stan/",family,"_movbeta_nest.stan"),
-  data = dat_stan,
-  pars = c('alpha', 'beta', 'y_sd', 'mu_beta', 'theta_y', 
-           'yhat', 'log_lik'),
-  warmup = sim_pars$warmup,
-  iter = sim_pars$iter,
-  thin = sim_pars$thin,
-  chains = sim_pars$chains,
-  control = list(adapt_delta = 0.99)
-)
-
-# Nested models 
-# update data list
+# Nested simplex models 
 dat_stan$clim         <- t(mod_data$climate)
 dat_stan$clim1        <- t(mod_data$climate)[1:12 ,]
 dat_stan$clim2        <- t(mod_data$climate)[13:24,]
 dat_stan$clim3        <- t(mod_data$climate)[25:36,]
-
-# Simplex nested
-fit_24_nest <- stan(
-  file = paste0("code/stan/",family,"_dirichlet_nest.stan"),
+fit_36_nest <- stan(
+  file = paste0("R/stan/",family,"_dirichlet_nest.stan"),
   data = dat_stan,
   pars = c('theta_y', 'theta_m', 'alpha', 'beta', 'y_sd', 
-           'yhat', 'log_lik'),
+           'yhat',    'log_lik'),
   warmup = sim_pars$warmup,
   iter = sim_pars$iter,
   thin = sim_pars$thin,
@@ -316,31 +358,97 @@ fit_24_nest <- stan(
   #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
-# Generalized Extreme Value nested
-fit_gaus_nest <- stan(
-  file = paste0("code/stan/",family,"_gaus_nest.stan"),
-  data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd', 
-           'yhat', 'log_lik'),
-  warmup = sim_pars$warmup,
-  iter = sim_pars$iter,
-  thin = sim_pars$thin,
-  chains = sim_pars$chains#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
-)
+# # exponential power moving window
+# fit_expp <- stan(
+#   file = paste0("R/stan/",family,"_expp.stan"),
+#   data = dat_stan,
+#   pars = c('sens_mu', 'sens_sd', 'alpha', 'beta', 'y_sd', 
+#            'yhat', 'log_lik'), #'log_lik'
+#   warmup = sim_pars$warmup,
+#   iter = sim_pars$iter,
+#   thin = sim_pars$thin,
+#   chains = sim_pars$chains,
+#   control = list(adapt_delta = 0.99)
+# )
 
-# Power exponential nested 
-fit_expp_nest <- stan(
-  file = paste0("code/stan/",family,"_expp_nest.stan"),
-  data = dat_stan,
-  pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd', 
-           'yhat', 'log_lik'),
-  warmup = sim_pars$warmup,
-  iter = sim_pars$iter,
-  thin = sim_pars$thin,
-  chains = sim_pars$chains#,
-  #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
-)
+# # moving beta hierarchical
+# fit_mb_h <- stan(
+#   file = paste0("R/stan/",family,"_ridge.stan"),
+#   data = dat_stan,
+#   pars = 'beta',
+#   # pars = c('alpha', 'beta', 'y_sd', 'sigma_beta', 
+#   #          'yhat', 'log_lik'),
+#   warmup = sim_pars$warmup,
+#   iter = sim_pars$iter,
+#   thin = sim_pars$thin,
+#   chains = 1 #sim_pars$chains,
+#   # control = list(adapt_delta = 0.99)
+# )
+
+# moving beta correlated
+# fit_mb <- stan(
+#   file = paste0("R/stan/",family,"_movbeta.stan"),
+#   data = dat_stan,
+#   pars = c('alpha', 'beta', 'y_sd', 'mu_beta', 
+#            'yhat','log_lik'),
+#   warmup = sim_pars$warmup,
+#   iter = sim_pars$iter,
+#   thin = sim_pars$thin,
+#   chains = sim_pars$chains,
+#   control = list(adapt_delta = 0.99)
+# )
+
+# # moving beta hierarchical
+# fit_mb_h_n <- stan(
+#   file = paste0("R/stan/",family,"_movbeta_h_nest.stan"),
+#   data = dat_stan,
+#   pars = c('alpha', 'beta', 'y_sd', 'mu_beta', 'sigma_beta', 'theta_y',
+#            'yhat','log_lik'),
+#   warmup = sim_pars$warmup,
+#   iter = sim_pars$iter,
+#   thin = sim_pars$thin,
+#   chains = sim_pars$chains,
+#   control = list(adapt_delta = 0.99)
+# )
+
+# # moving beta correlated
+# fit_mb_n <- stan(
+#   file = paste0("R/stan/",family,"_movbeta_nest.stan"),
+#   data = dat_stan,
+#   pars = c('alpha', 'beta', 'y_sd', 'mu_beta', 'theta_y', 
+#            'yhat', 'log_lik'),
+#   warmup = sim_pars$warmup,
+#   iter = sim_pars$iter,
+#   thin = sim_pars$thin,
+#   chains = sim_pars$chains,
+#   control = list(adapt_delta = 0.99)
+# )
+
+# # Generalized Extreme Value nested
+# fit_gaus_nest <- stan(
+#   file = paste0("R/stan/",family,"_gaus_nest.stan"),
+#   data = dat_stan,
+#   pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd', 
+#            'yhat', 'log_lik'),
+#   warmup = sim_pars$warmup,
+#   iter = sim_pars$iter,
+#   thin = sim_pars$thin,
+#   chains = sim_pars$chains#,
+#   #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
+# )
+# 
+# # Power exponential nested 
+# fit_expp_nest <- stan(
+#   file = paste0("R/stan/",family,"_expp_nest.stan"),
+#   data = dat_stan,
+#   pars = c('sens_mu', 'sens_sd', 'theta_y', 'alpha', 'beta', 'y_sd', 
+#            'yhat', 'log_lik'),
+#   warmup = sim_pars$warmup,
+#   iter = sim_pars$iter,
+#   thin = sim_pars$thin,
+#   chains = sim_pars$chains#,
+#   #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
+# )
 
 
 
@@ -351,13 +459,19 @@ mod_fit   <- list( ctrl1    = fit_ctrl1,
                    yr1      = fit_yr1,     
                    yr2      = fit_yr2,
                    yr3      = fit_yr3,
-                   gaus     = fit_gaus,    
-                   expp     = fit_expp,
-                   movb_h   = fit_mb_h,    movb   = fit_mb,      
-                   movb_h_n = fit_mb_h_n,  movb_n = fit_mb_n,
-                   simpl_n  = fit_24_nest, 
-                   expp_n   = fit_expp_nest, 
-                   gaus_n   = fit_gaus_nest )
+                   gaus1    = fit_gaus1,
+                   gaus2    = fit_gaus2,
+                   gaus3    = fit_gaus3,
+                   ridge1   = fit_ridge1,
+                   ridge2   = fit_ridge2,
+                   ridge3   = fit_ridge3,
+                   simpl1   = fit_simpl3, 
+                   simpl2   = fit_simpl2, 
+                   simpl3   = fit_simpl3, 
+                   gaus     = fit_gaus_all,
+                   ridge    = fit_ridge_all,
+                   simpl_n  = fit_simpl_all )
+                   
 
 # get central tendencies
 pars_diag_extract <- function(x){
@@ -419,33 +533,34 @@ log_liks   <- lapply(mod_fit, extract_log_lik)
 loo_l      <- lapply(log_liks, loo) %>%
                   setNames( c("loo_ctrl1",   
                               "loo_yr1",     "loo_yr2",   "loo_yr3", 
-                              "loo_gaus",    "loo_expp",   
-                              "loo_movb_h",  "loo_movb",       
-                              "loo_movb_h_n","loo_movb_n",  
-                              "loo_simpl_n", "loo_gaus_n", "loo_expp_n") )
-loo_df     <- loo::compare(loo_l$loo_ctrl1,   
-                           loo_l$loo_yr1,     loo_l$loo_yr2,   loo_l$loo_yr3, 
-                           loo_l$loo_gaus,    loo_l$loo_expp,  
-                           loo_l$loo_movb_h,  loo_l$loo_movb,    
-                           loo_l$loo_movb_h_n,loo_l$loo_movb_n,  
-                           loo_l$loo_simpl_n, loo_l$loo_gaus_n, loo_l$loo_expp_n ) %>%
+                              "loo_gaus1",   "loo_gaus2", "loo_gaus3", 
+                              "loo_simpl1",  "loo_simpl2","loo_simpl3", 
+                              "loo_ridge1",  "loo_ridge2","loo_ridge3", 
+                              "loo_gaus",    "loo_ridge", "loo_simpl") )
+loo_df     <- loo_compare(loo_l$loo_ctrl1,   
+                          loo_l$loo_yr1,     loo_l$loo_yr2,    loo_l$loo_yr3, 
+                          loo_l$loo_gaus1,   loo_l$loo_gaus2,  loo_l$loo_gaus3, 
+                          loo_l$loo_simpl1,  loo_l$loo_simpl2, loo_l$loo_simpl3, 
+                          loo_l$loo_ridge1,  loo_l$loo_ridge2, loo_l$loo_ridge3, 
+                          loo_l$loo_gaus,    loo_l$loo_ridge,  loo_l$loo_simpl
+                           ) %>%
                 as.data.frame %>%
                 tibble::add_column(model = gsub("loo_l\\$loo_","",row.names(.) ), .before = 1)
 
 # WAIC estimates
 waic_l    <- lapply(log_liks, waic) %>%
                 setNames(c("waic_ctrl1",   
-                           "waic_yr1",     "waic_yr2",   "waic_yr3",  
-                           "waic_gaus",    "waic_expp", 
-                           "waic_movb_h",  "waic_movb",    
-                           "waic_movb_h_n","waic_movb_n",  
-                           "waic_simpl_n", "waic_gaus_n", "waic_expp_n") )
-waic_df   <- loo::compare(waic_l$waic_ctrl1,   
-                          waic_l$waic_yr1,     waic_l$waic_yr2,     waic_l$waic_yr3,
-                          waic_l$waic_gaus,    waic_l$waic_expp, 
-                          waic_l$waic_movb_h,  waic_l$waic_movb,    
-                          waic_l$waic_movb_h_n,waic_l$waic_movb_n,  
-                          waic_l$waic_simpl_n, waic_l$waic_gaus_n,   waic_l$waic_expp_n) %>%
+                           "waic_yr1",     "waic_yr2",   "waic_yr3", 
+                           "waic_gaus1",   "waic_gaus2", "waic_gaus3", 
+                           "waic_simpl1",  "waic_simpl2","waic_simpl3", 
+                           "waic_ridge1",  "waic_ridge2","waic_ridge3", 
+                           "waic_gaus",    "waic_ridge", "waic_simpl") )
+waic_df   <- loo_compare(waic_l$waic_ctrl1,   
+                          waic_l$waic_yr1,     waic_l$waic_yr2,    waic_l$waic_yr3, 
+                          waic_l$waic_gaus1,   waic_l$waic_gaus2,  waic_l$waic_gaus3, 
+                          waic_l$waic_simpl1,  waic_l$waic_simpl2, waic_l$waic_simpl3, 
+                          waic_l$waic_ridge1,  waic_l$waic_ridge2, waic_l$waic_ridge3, 
+                          waic_l$waic_gaus,    waic_l$waic_ridge,  waic_l$waic_simpl) %>%
                 as.data.frame %>%
                 tibble::add_column(model = gsub("waic_l\\$waic_","",row.names(.) ), 
                                    .before = 1) %>% 
@@ -501,17 +616,17 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   )
   
   # compile all models first
-  mod_null   <- stan_model(file = paste0("code/stan/",family,"_null_crossval.stan") )
-  mod_yr     <- stan_model(file = paste0("code/stan/",family,"_yr_crossval.stan") )
-  mod_gaus   <- stan_model(file = paste0("code/stan/",family,"_gaus_crossval.stan")  )
-  mod_expp   <- stan_model(file = paste0("code/stan/",family,"_expp_crossval.stan") )
-  mod_mb_h   <- stan_model(file = paste0("code/stan/",family,"_movbeta_h_crossval.stan") )
-  mod_mb     <- stan_model(file = paste0("code/stan/",family,"_movbeta_crossval.stan") )
-  mod_mb_h_n <- stan_model(file = paste0("code/stan/",family,"_movbeta_h_nest_crossval.stan") )
-  mod_mb_n   <- stan_model(file = paste0("code/stan/",family,"_movbeta_nest_crossval.stan") )
-  mod_gaus_n <- stan_model(file = paste0("code/stan/",family,"_gaus_nest_crossval.stan") )
-  mod_expp_n <- stan_model(file = paste0("code/stan/",family,"_expp_nest_crossval.stan") )
-  mod_smpl_n <- stan_model(file = paste0("code/stan/",family,"_dirichlet_nest_crossval.stan") )
+  mod_null   <- stan_model(file = paste0("R/stan/",family,"_null_crossval.stan") )
+  mod_yr     <- stan_model(file = paste0("R/stan/",family,"_yr_crossval.stan") )
+  mod_gaus   <- stan_model(file = paste0("R/stan/",family,"_gaus_crossval.stan")  )
+  mod_expp   <- stan_model(file = paste0("R/stan/",family,"_expp_crossval.stan") )
+  mod_mb_h   <- stan_model(file = paste0("R/stan/",family,"_movbeta_h_crossval.stan") )
+  mod_mb     <- stan_model(file = paste0("R/stan/",family,"_movbeta_crossval.stan") )
+  mod_mb_h_n <- stan_model(file = paste0("R/stan/",family,"_movbeta_h_nest_crossval.stan") )
+  mod_mb_n   <- stan_model(file = paste0("R/stan/",family,"_movbeta_nest_crossval.stan") )
+  mod_gaus_n <- stan_model(file = paste0("R/stan/",family,"_gaus_nest_crossval.stan") )
+  mod_expp_n <- stan_model(file = paste0("R/stan/",family,"_expp_nest_crossval.stan") )
+  mod_smpl_n <- stan_model(file = paste0("R/stan/",family,"_dirichlet_nest_crossval.stan") )
   
   # fit control 1 (intercept only)
   fit_ctrl1_crossval <- sampling(

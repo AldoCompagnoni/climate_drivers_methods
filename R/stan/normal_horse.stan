@@ -13,11 +13,11 @@ functions {
    */
   vector horseshoe(vector zb, vector[] local, real[] global,
                    real scale_global, real c2) {
-    int MM = rows(zb);
-    vector[MM] lambda = local[1] .* sqrt(local[2]);
-    vector[MM] lambda2 = square(lambda);
+    int n_lag = rows(zb);
+    vector[n_lag] lambda = local[1] .* sqrt(local[2]);
+    vector[n_lag] lambda2 = square(lambda);
     real tau = global[1] * sqrt(global[2]) * scale_global;
-    vector[MM] lambda_tilde = sqrt(c2 * lambda2 ./ (c2 + tau^2 * lambda2));
+    vector[n_lag] lambda_tilde = sqrt(c2 * lambda2 ./ (c2 + tau^2 * lambda2));
     return zb .* lambda_tilde * tau;
   }
 }
@@ -25,8 +25,8 @@ functions {
 data {
   int<lower=1> n_time;  // number of observations
   vector[n_time] y;  // response variable
-  int<lower=1> MM;  // number of population-level effects
-  matrix[n_time, MM] clim;  // population-level design matrix
+  int<lower=1> n_lag;  // number of population-level effects
+  matrix[n_time, n_lag] clim;  // population-level design matrix
   // data for the horseshoe prior
   real<lower=0> hs_df;  // local degrees of freedom
   real<lower=0> hs_df_global;  // global degrees of freedom
@@ -37,8 +37,8 @@ data {
 
 parameters {
   // local parameters for horseshoe prior
-  vector[MM] zb;
-  vector<lower=0>[MM] hs_local[2];
+  vector[n_lag] zb;
+  vector<lower=0>[n_lag] hs_local[2];
   real alpha;  // temporary intercept for centered predictors
   // horseshoe shrinkage parameters
   real<lower=0> hs_global[2];  // global shrinkage parameters
@@ -47,7 +47,7 @@ parameters {
 }
 
 transformed parameters {
-  vector[MM] beta;  // population-level effects
+  vector[n_lag] beta;  // population-level effects
   vector[n_time] yhat;
   // compute actual regression coefficients
   beta = horseshoe(zb, hs_local, hs_global, hs_scale_global * y_sd, hs_scale_slab^2 * hs_c2);

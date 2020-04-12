@@ -15,9 +15,13 @@ parameters {
 
 transformed parameters {
   vector[n_time] x;
+  vector[n_time] yhat;
   
   for(i in 1:n_time)
     x[i] = sum(theta .* clim[,i]);
+    
+  yhat = alpha + beta * x;
+    
 }
 
 model {
@@ -28,12 +32,12 @@ model {
   y_sd  ~ gamma(1,1);
    
   // model
-  y ~ normal(alpha + beta * x, y_sd);
+  y ~ normal( yhat, y_sd);
 }
 
-// generated quantities {
-//   vector[n_time] log_lik;
-// 
-//   for (n in 1:n_time)
-//     log_lik[n] = normal_lpdf(y[n] | alpha + beta * x[n], y_sd);
-// }
+generated quantities {
+  vector[n_time] log_lik;
+
+  for (n in 1:n_time)
+    log_lik[n] = normal_lpdf(y[n] | yhat[n], y_sd);
+}

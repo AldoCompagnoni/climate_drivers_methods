@@ -21,11 +21,15 @@ functions {
     return zb .* lambda_tilde * tau;
   }
 }
+
 data {
-  int<lower=1> n_time;  // number of observations
-  vector[n_time] y;  // response variable
-  int<lower=1> n_lag;  // number of population-level effects
-  matrix[n_time, n_lag] clim;  // population-level design matrix
+  int<lower=1> n_train;  // number of observations
+  int<lower=1> n_test;  // number of observations
+  int n_lag;
+  vector[n_train] y_train;
+  vector[n_test]  y_test;
+  matrix[n_train, n_lag] clim_train;
+  matrix[n_test,  n_lag] clim_test;
   // data for the horseshoe prior
   real<lower=0> hs_df;  // local degrees of freedom
   real<lower=0> hs_df_global;  // global degrees of freedom
@@ -42,28 +46,30 @@ parameters {
   // horseshoe shrinkage parameters
   real<lower=0> hs_global[2];  // global shrinkage parameters
   real<lower=0> hs_c2;  // slab regularization parameter
-  real<lower=0> y_sd;  // shape parameter
+  real<lower=0> y_sd;  // precision parameter
 }
+
 transformed parameters {
+  // transformed parameters for beta binomial regression
+  vector<lower=0,upper=1>[n_train] yhat; // transformed linear predictor for mean of beta distribution
+  real<lower=0> A[n_train];          // parameter for beta distn
+  real<lower=0> B[n_train];          // parameter for beta distn
   vector[n_lag] beta;  // population-level effects
-  vector[n_time] yhat;
-  vector[n_time] mu_aux;
-  vector[n_time] mu;
   
   // compute actual regression coefficients
-  beta   = horseshoe(zb, hs_local, hs_global, hs_scale_global, hs_scale_slab^2 * hs_c2);
-  yhat   = exp(alpha + clim * beta); // store means
-  mu_aux = alpha + clim * beta;      // auxiliary variable
+  beta = horseshoe(zb, hs_local, hs_global, hs_scale_global, hs_scale_slab^2 * hs_c2);
+  yhat = inv_logit(alpha + clim_train * beta);
   
-  // initialize linear predictor term
-  for (n in 1:n_time) {
-    // apply the inverse link function
-    mu[n] = y_sd * exp(-mu_aux[n]);
+  for(n in 1:n_train){
+    A[n]    = yhat[n] * y_sd;
+    B[n]    = (1.0 - yhat[n]) * y_sd;
   }
   
 }
+
 model {
-  
+  // initialize linear predictor term
+
   // priors including all constants
   target += normal_lpdf(zb | 0, 1);
   target += normal_lpdf(hs_local[1] | 0, 1)
@@ -76,13 +82,26 @@ model {
   target += inv_gamma_lpdf(hs_c2 | 0.5 * hs_df_slab, 0.5 * hs_df_slab);
   target += gamma_lpdf(y_sd | 0.01, 0.01);
   // likelihood including all constants
-  target += gamma_lpdf(y | y_sd, mu);
+  target += beta_lpdf(y_train | A, B);
 }
 
 generated quantities {
-  vector[n_time] log_lik;
+  vector[n_train] log_lik;
+  vector[n_test] pred_y;
+  vector[n_test] log_lik_test;
+  vector[n_lag] pred_x;
+  real<lower=0>  A_test[n_test];               // parameter for beta distn
+  real<lower=0>  B_test[n_test];               // parameter for beta distn
   
-  for (n in 1:n_time)
-    log_lik[n] = gamma_lpdf(y[n] | y_sd, (y_sd / mu[n]) );
+  for(n in 1:n_train)
+    log_lik[n] = beta_lpdf(y_train[n] | A[n], B[n] );
+  
+  // out of sample prediction
+  for(n in 1:n_test){
+    pred_y[n]       = inv_logit(alpha + sum(clim_test[n,]' .* beta));
+    A_test[n]       = pred_y[n] * y_sd;
+    B_test[n]       = (1.0 - pred_y[n]) * y_sd;
+    log_lik_test[n] = beta_lpdf(y_test[n] | A_test[n], B_test[n]);
+  }
 
 }

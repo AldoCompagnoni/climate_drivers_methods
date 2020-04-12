@@ -21,11 +21,15 @@ functions {
     return zb .* lambda_tilde * tau;
   }
 }
+
 data {
-  int<lower=1> n_time;  // number of observations
-  vector[n_time] y;  // response variable
-  int<lower=1> n_lag;  // number of population-level effects
-  matrix[n_time, n_lag] clim;  // population-level design matrix
+  int<lower=1> n_train;  // number of observations
+  int<lower=1> n_test;  // number of observations
+  int n_lag;
+  vector[n_train] y_train;
+  vector[n_test]  y_test;
+  matrix[n_train, n_lag] clim_train;
+  matrix[n_test,  n_lag] clim_test;
   // data for the horseshoe prior
   real<lower=0> hs_df;  // local degrees of freedom
   real<lower=0> hs_df_global;  // global degrees of freedom
@@ -42,28 +46,19 @@ parameters {
   // horseshoe shrinkage parameters
   real<lower=0> hs_global[2];  // global shrinkage parameters
   real<lower=0> hs_c2;  // slab regularization parameter
-  real<lower=0> y_sd;  // shape parameter
+  real<lower=0> y_sd;  // residual SD
 }
+
 transformed parameters {
   vector[n_lag] beta;  // population-level effects
-  vector[n_time] yhat;
-  vector[n_time] mu_aux;
-  vector[n_time] mu;
+  vector[n_train] yhat;
   
   // compute actual regression coefficients
-  beta   = horseshoe(zb, hs_local, hs_global, hs_scale_global, hs_scale_slab^2 * hs_c2);
-  yhat   = exp(alpha + clim * beta); // store means
-  mu_aux = alpha + clim * beta;      // auxiliary variable
-  
-  // initialize linear predictor term
-  for (n in 1:n_time) {
-    // apply the inverse link function
-    mu[n] = y_sd * exp(-mu_aux[n]);
-  }
-  
+  beta = horseshoe(zb, hs_local, hs_global, hs_scale_global * y_sd, hs_scale_slab^2 * hs_c2);
+  yhat = alpha + clim_train * beta;
 }
+
 model {
-  
   // priors including all constants
   target += normal_lpdf(zb | 0, 1);
   target += normal_lpdf(hs_local[1] | 0, 1)
@@ -74,15 +69,28 @@ model {
     - 1 * log(0.5);
   target += inv_gamma_lpdf(hs_global[2] | 0.5 * hs_df_global, 0.5 * hs_df_global);
   target += inv_gamma_lpdf(hs_c2 | 0.5 * hs_df_slab, 0.5 * hs_df_slab);
-  target += gamma_lpdf(y_sd | 0.01, 0.01);
+  target += student_t_lpdf(y_sd | 3, 0, 10)
+    - 1 * student_t_lccdf(0 | 3, 0, 10);
   // likelihood including all constants
-  target += gamma_lpdf(y | y_sd, mu);
+  y_train ~ normal( yhat, y_sd);
+  
 }
 
 generated quantities {
-  vector[n_time] log_lik;
+  vector[n_train] log_lik;
+  vector[n_test] pred_y;
+  vector[n_test] log_lik_test;
+  vector[n_lag] pred_x;
   
-  for (n in 1:n_time)
-    log_lik[n] = gamma_lpdf(y[n] | y_sd, (y_sd / mu[n]) );
-
+  for(n in 1:n_train){
+    pred_x     = clim_train[n,]';
+    log_lik[n] = normal_lpdf(y_train[n] | alpha + beta .* pred_x, y_sd);
+  }
+  
+  // out of sample prediction
+  for(n in 1:n_test){
+    pred_y[n]       = alpha + sum(clim_test[n,]' .* beta);
+    log_lik_test[n] = normal_lpdf(y_test[n] | pred_y[n], y_sd);
+  }
+  
 }

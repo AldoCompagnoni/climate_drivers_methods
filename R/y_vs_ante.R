@@ -251,151 +251,151 @@ for(rr in 1:1){
         
       }
       
-      if(mod == 'expp'){
-        
-        # load relevant params
-        mean_post( mod )
-        
-        # gaus
-        expp_w_v  <- dexppow(xx_a, post_mean$sens_mu, 
-                                   post_mean$sens_sd,
-                                   expp_beta)
-        w_v       <- expp_w_v / sum(expp_w_v)
-        
-        # x_antecedent posterior
-        ante_post <- function(ii, post_in){
-          gaus_w_v  <- dexppow(xx_a, post_in$sens_mu[ii], 
-                                     post_in$sens_sd[ii],
-                                     expp_beta)      
-          (gaus_w_v / sum(gaus_w_v)) %>% 
-            as.data.frame %>% 
-            mutate( x = 1:length(gaus_w_v) ) %>% 
-            setNames( c('w','x') ) %>% select(x,w)
-        }
-        
-        # MEANS: plotting material
-        x_ante <- as.matrix(mod_data$climate) %*% w_v
-        pl_df  <- plotting_df(1,x_ante,post_mean,mod_data,response)
-        
-        # posterior
-        pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data, response)
-        w_v_l  <- lapply(slices, ante_post, post_m)
-        
-      }
+      # if(mod == 'expp'){
+      #   
+      #   # load relevant params
+      #   mean_post( mod )
+      #   
+      #   # gaus
+      #   expp_w_v  <- dexppow(xx_a, post_mean$sens_mu, 
+      #                              post_mean$sens_sd,
+      #                              expp_beta)
+      #   w_v       <- expp_w_v / sum(expp_w_v)
+      #   
+      #   # x_antecedent posterior
+      #   ante_post <- function(ii, post_in){
+      #     gaus_w_v  <- dexppow(xx_a, post_in$sens_mu[ii], 
+      #                                post_in$sens_sd[ii],
+      #                                expp_beta)      
+      #     (gaus_w_v / sum(gaus_w_v)) %>% 
+      #       as.data.frame %>% 
+      #       mutate( x = 1:length(gaus_w_v) ) %>% 
+      #       setNames( c('w','x') ) %>% select(x,w)
+      #   }
+      #   
+      #   # MEANS: plotting material
+      #   x_ante <- as.matrix(mod_data$climate) %*% w_v
+      #   pl_df  <- plotting_df(1,x_ante,post_mean,mod_data,response)
+      #   
+      #   # posterior
+      #   pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data, response)
+      #   w_v_l  <- lapply(slices, ante_post, post_m)
+      #   
+      # }
       
-      # moving betas
-      if(mod %in% c('movb', 'movb_h') ){
+      # # moving betas
+      # if(mod %in% c('movb', 'movb_h') ){
+      #   
+      #   # load relevant params
+      #   mean_post( mod )
+      #   
+      #   # consider "mu beta" as "beta"
+      #   post_m    <- select(post_m,-beta) %>% rename(beta=mu_beta)
+      #   post_mean <- select(post_mean,-beta) %>% rename(beta=mu_beta)
+      #   
+      #   # # MEANS: plotting material
+      #   b_names <- paste0('beta_',1:36)
+      #   # x_ante  <- as.matrix(mod_data$climate) %*% as.numeric(post_mean[,b_names])
+      #   # pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+      #   # 
+      #   # # posterior
+      #   # pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data)
+      #   qnt_m  <- quant_ind_w(post_m,b_names)
+      #   
+      # }
         
-        # load relevant params
-        mean_post( mod )
-        
-        # consider "mu beta" as "beta"
-        post_m    <- select(post_m,-beta) %>% rename(beta=mu_beta)
-        post_mean <- select(post_mean,-beta) %>% rename(beta=mu_beta)
-        
-        # # MEANS: plotting material
-        b_names <- paste0('beta_',1:36)
-        # x_ante  <- as.matrix(mod_data$climate) %*% as.numeric(post_mean[,b_names])
-        # pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
-        # 
-        # # posterior
-        # pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data)
-        qnt_m  <- quant_ind_w(post_m,b_names)
-        
-      }
-        
-      # moving betas nested
-      if(mod %in% c('movb_n','movb_h_n') ){
-        
-        # load relevant params
-        mean_post( mod )
-        
-        # consider "mu beta" as "beta"
-        post_m    <- select(post_m,-beta) %>% rename(beta=mu_beta)
-        post_mean <- select(post_mean,-beta) %>% rename(beta=mu_beta)
-        
-        # # MEANS: plotting material
-        b_names <- paste0('beta_',1:12)
-        # x_ante  <- as.matrix(mod_data$climate) %*% as.numeric(post_mean[,b_names])
-        # pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
-        # 
-        # # posterior
-        # pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data)
-        qnt_m  <- quant_ind_w(post_m,b_names)
-        qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
-          
-      }
+      # # moving betas nested
+      # if(mod %in% c('movb_n','movb_h_n') ){
+      #   
+      #   # load relevant params
+      #   mean_post( mod )
+      #   
+      #   # consider "mu beta" as "beta"
+      #   post_m    <- select(post_m,-beta) %>% rename(beta=mu_beta)
+      #   post_mean <- select(post_mean,-beta) %>% rename(beta=mu_beta)
+      #   
+      #   # # MEANS: plotting material
+      #   b_names <- paste0('beta_',1:12)
+      #   # x_ante  <- as.matrix(mod_data$climate) %*% as.numeric(post_mean[,b_names])
+      #   # pl_df  <- plotting_df(1,x_ante,post_mean,mod_data)
+      #   # 
+      #   # # posterior
+      #   # pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data)
+      #   qnt_m  <- quant_ind_w(post_m,b_names)
+      #   qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
+      #     
+      # }
       
-      # expp_n
-      if(mod == 'expp_n'){
+      # # expp_n
+      # if(mod == 'expp_n'){
+      # 
+      #   # load relevant params
+      #   mean_post( mod )
+      #   
+      #   # expp
+      #   expp_w_v <- dexppow(xx, post_mean$sens_mu, 
+      #                           post_mean$sens_sd, 20)
+      #   w_v <- c( ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_1),
+      #             ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_2),
+      #             ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_3) )
+      #  
+      #   # x_antecedent posterior
+      #   ante_post <- function(ii, post_in){
+      #     expp_w_v  <- dexppow(xx, post_in$sens_mu[ii], 
+      #                              post_in$sens_sd[ii],
+      #                              expp_beta)
+      #     w_v <- (expp_w_v / sum(expp_w_v))
+      #     w_v %>% 
+      #       as.data.frame %>% 
+      #       mutate( x = 1:length(expp_w_v) ) %>% 
+      #       setNames( c('w','x') ) %>% select(x,w)
+      #   }
+      #   
+      #   
+      #   # MEANS: plotting material
+      #   x_ante <- as.matrix(mod_data$climate) %*% w_v
+      #   pl_df  <- plotting_df(1,x_ante,post_mean,mod_data,response)
+      #   
+      #   # posteriors 
+      #   pl_l   <- lapply(slices,plotting_df,x_ante,post_m,mod_data,response)
+      #   w_v_l  <- lapply(slices, ante_post, post_m)
+      #   qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
+      #   
+      # }
       
-        # load relevant params
-        mean_post( mod )
-        
-        # expp
-        expp_w_v <- dexppow(xx, post_mean$sens_mu, 
-                                post_mean$sens_sd, 20)
-        w_v <- c( ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_1),
-                  ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_2),
-                  ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_3) )
-       
-        # x_antecedent posterior
-        ante_post <- function(ii, post_in){
-          expp_w_v  <- dexppow(xx, post_in$sens_mu[ii], 
-                                   post_in$sens_sd[ii],
-                                   expp_beta)
-          w_v <- (expp_w_v / sum(expp_w_v))
-          w_v %>% 
-            as.data.frame %>% 
-            mutate( x = 1:length(expp_w_v) ) %>% 
-            setNames( c('w','x') ) %>% select(x,w)
-        }
-        
-        
-        # MEANS: plotting material
-        x_ante <- as.matrix(mod_data$climate) %*% w_v
-        pl_df  <- plotting_df(1,x_ante,post_mean,mod_data,response)
-        
-        # posteriors 
-        pl_l   <- lapply(slices,plotting_df,x_ante,post_m,mod_data,response)
-        w_v_l  <- lapply(slices, ante_post, post_m)
-        qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
-        
-      }
-      
-      if(mod == 'gaus_n'){
-      
-        # load parameters and posterior
-        mean_post( mod )
-        
-        # expp
-        expp_w_v <- dnorm(xx, post_mean$sens_mu, 
-                              post_mean$sens_sd)
-        w_v <- c( ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_1),
-                  ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_2),
-                  ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_3) )
-       
-        # posterior of antecedent
-        ante_post <- function(ii, post_in){
-          gaus_w_v  <- dnorm(xx, post_in$sens_mu[ii], 
-                                 post_in$sens_sd[ii] )
-          w_v <- (gaus_w_v / sum(gaus_w_v))
-          w_v %>% 
-            as.data.frame %>% 
-            mutate( x = 1:length(xx) ) %>% 
-            setNames( c('w','x') ) %>% select(x,w)
-        }
-        
-        # plotting material & plot data frame
-        x_ante <- as.matrix(mod_data$climate) %*% w_v
-        pl_df  <- plotting_df(1,x_ante,post_mean,mod_data,response)
-          
-        # posteriors 
-        pl_l   <- lapply(slices, plotting_df,x_ante,post_m,mod_data,response)
-        w_v_l  <- lapply(slices, ante_post, post_m)
-        qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
-          
-      }
+      # if(mod == 'gaus_n'){
+      # 
+      #   # load parameters and posterior
+      #   mean_post( mod )
+      #   
+      #   # expp
+      #   expp_w_v <- dnorm(xx, post_mean$sens_mu, 
+      #                         post_mean$sens_sd)
+      #   w_v <- c( ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_1),
+      #             ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_2),
+      #             ((expp_w_v / sum(expp_w_v))*post_mean$theta_y_3) )
+      #  
+      #   # posterior of antecedent
+      #   ante_post <- function(ii, post_in){
+      #     gaus_w_v  <- dnorm(xx, post_in$sens_mu[ii], 
+      #                            post_in$sens_sd[ii] )
+      #     w_v <- (gaus_w_v / sum(gaus_w_v))
+      #     w_v %>% 
+      #       as.data.frame %>% 
+      #       mutate( x = 1:length(xx) ) %>% 
+      #       setNames( c('w','x') ) %>% select(x,w)
+      #   }
+      #   
+      #   # plotting material & plot data frame
+      #   x_ante <- as.matrix(mod_data$climate) %*% w_v
+      #   pl_df  <- plotting_df(1,x_ante,post_mean,mod_data,response)
+      #     
+      #   # posteriors 
+      #   pl_l   <- lapply(slices, plotting_df,x_ante,post_m,mod_data,response)
+      #   w_v_l  <- lapply(slices, ante_post, post_m)
+      #   qnt_yr <- quant_ind_w(post_m,paste0('theta_y_',1:3))
+      #     
+      # }
       
       if(mod == 'simpl_n'){
         

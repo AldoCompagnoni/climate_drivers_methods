@@ -1,5 +1,5 @@
 # produce summary graphs
-source("code/format_data.R")
+source("R/format_data.R")
 library(dplyr)
 library(tidyr)
 library(magrittr)
@@ -13,8 +13,17 @@ m_back        <- 36
 interval      <- NULL
 pre_chelsa    <- NULL # '_pre_chelsa'
 
+
+# quote a series of bare names
+quote_bare <- function( ... ){
+  substitute( alist(...) ) %>% 
+    eval( ) %>% 
+    sapply( deparse )
+}
+
+
 # Summarize moving windows results by climate variable -------------------------------
-mod_perform <- function(ii){
+mod_perform <- function(ii, res_folder){
   
   clim_var <- input_df$clim_var[ii]
   response <- input_df$response[ii]
@@ -29,7 +38,7 @@ mod_perform <- function(ii){
   # summary info 
   
   # result folder name
-  res_folder<- paste0("E:/work/sApropos/2019.6.11/")
+  # res_folder<- paste0( dir_res )
                       # response,
                       # "/",
                       # clim_var, pre_chelsa, interval)
@@ -42,7 +51,7 @@ mod_perform <- function(ii){
   mod_summ  <- lapply(sum_files, function(x) read.csv(paste0(res_folder,"/",x)) ) %>%
                   setNames( gsub("mod_summaries_", "", sum_files ) ) %>%
                   setNames( gsub(paste0(resp_clim,".csv"), "", names(.) ) ) %>% 
-                  setNames( gsub('array_vr-[0-9]{7}-[0-9]{1,2}_', "", names(.) ) )
+                  setNames( gsub('array_vr-[0-9]{7}-[0-9]{1,3}-[0-9]{1,3}_', "", names(.) ) )
   
   # all model selection summaries
   all_sums  <- Map(function(x,y) tibble::add_column(x, species = y, .before = 1), 
@@ -87,11 +96,43 @@ input_df    <- expand.grid( clim_var = c("precip","airt"),
                             response = c("surv","grow","fec","log_lambda"),
                             interval = "",
                             stringsAsFactors = F)
+# model results in 
+dir          <- 'C:/Users/ac22qawo/sapropos_main/out'
 
 # ALL model information
-mod_perf_df  <- lapply(1:nrow(input_df), mod_perform) %>%
+mod_perf_df  <- lapply(1:nrow(input_df), mod_perform, dir) %>%
                   bind_rows %>% 
-                  arrange(species, mse)
+                  arrange(species, mse) %>% 
+                  # PROVISIONAL: remove mistake "simpl"
+                  subset( !(model %in% 'simpl') )
+
+
+# check missing simulations ------------------------------------------------------
+
+# species 
+spp          <- read.csv("data/all_demog_updt.csv", 
+                         stringsAsFactors = F) %>% 
+                  .$SpeciesAuthor %>% 
+                  unique
+
+# species df
+spp_df       <- data.frame( species = spp,
+                            ii      = 1:39 )
+
+# missing species and numbers
+spp_all_df   <- expand.grid( clim_var = c("precip","airt"),
+                             response = c("surv","grow","fec","log_lambda"),
+                             species  = spp,
+                             stringsAsFactors = F) %>% 
+                  arrange( clim_var, response, species ) %>% 
+                  mutate( job_n = 1:nrow(.) )
+
+# Missing simulations
+miss_df      <- anti_join( spp_all_df, mod_perf_df ) 
+
+write.csv(miss_df,
+          'C:/Users/ac22qawo/sapropos_main/miss_sims.csv',
+          row.names=F)
 
 
 # keep only species that are always present -------------------------------------------
@@ -120,8 +161,11 @@ all_intersect <- function(spp_all, list_vec){
 # vector of species common to all results files
 spp_common_v <- all_intersect(spp_all,spp_l_v) %>% 
                   apply(2,sum) %>% 
-                  Filter( function(x) x == 8, .) %>% 
+                  Filter( function(x) x == nrow(input_df), .) %>% 
                   names
+
+
+setdiff(spp_all, spp_common_v)
 
 # keep spp for which data is available for every response X clim var combination
 mod_perf_df  <- mod_perf_df %>% 
@@ -137,12 +181,13 @@ spp_df        <- mod_perf_df %>%
                     arrange(rep_yr, rep_n, species, model)
 
 # labels for models to plot on x-axis
-mod_labs    <- c('ctrl1', 'yr1','yr2','yr3',
-                 'gaus',  'expp',
-                 'mb_h',  'mb',
-                 'mb_n',  'mb_h_n', 
-                 'gaus_n','expp_n', 'simpl_n')
-
+mod_labs    <- quote_bare( ctrl1, 
+                           yr1,   yr2,     yr3,
+                           gaus1,  gaus2,   gaus3,
+                           simpl1, simpl2, simpl3,
+                           ridge1, ridge2, ridge3,
+                           gaus,   ridge,  simpl_n )
+  
 # resp    <- 'surv'
 # clim_v  <- 'airt'
 
@@ -178,7 +223,7 @@ form_diff_lppd_df <- function(resp, clim_v, mod_df){
                 as.data.frame %>%
                 setNames( perf_by_spp$species ) %>%
                 tibble::add_column(model = row.names(.), .before=1) %>%
-                gather(species,elpd,Actaea_spicata:Thelesperma_megapotamicum) %>% 
+                gather(species,elpd, setdiff(names(.),'model') ) %>% 
                 full_join( spp_df ) %>% 
                 mutate( model = factor(model, levels = mod_labs) ) %>%
                 left_join( dplyr::select(perf_by_spp, species, rep_yr, rep_n) ) %>% 
@@ -235,7 +280,9 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
               legend.text  = element_text(size = 12),
               axis.title   = element_blank(),
               legend.position ="none",
-              axis.text.x  = element_text(angle = 90, hjust = 1),
+              axis.text.x  = element_text(angle = 90, 
+                                          hjust = 1,
+                                          vjust = 0.5),
               legend.key   = element_blank()) +
         labs(fill = element_blank() )
     
@@ -249,10 +296,12 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
         theme(title        = element_text(angle = 0, hjust = 0.5, size = 10), 
               legend.title = element_blank(), 
               legend.position ="none",
-              axis.text.y  = element_blank(), 
+              axis.text.y  = element_blank(),
               legend.text  = element_blank(),
               axis.title   = element_blank(),
-              axis.text.x  = element_text(angle = 90, hjust = 1),
+              axis.text.x  = element_text(angle = 90, 
+                                          hjust = 1,
+                                          vjust = 0.5),
               legend.key   = element_blank())
   
   p3 <- ggplot(format_function('fec',clim_v, mod_df), aes(model, species)) +
@@ -264,11 +313,13 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
         ggtitle('Fecundity') +
         theme(title        = element_text(angle = 0, hjust = 0.5, size = 10), 
               legend.title = element_blank(), 
-              axis.text.y  = element_blank(), 
+              axis.text.y  = element_blank(),
               legend.text  = element_blank(),
               legend.position ="none",
               axis.title   = element_blank(),
-              axis.text.x  = element_text(angle = 90, hjust = 1),
+              axis.text.x  = element_text(angle = 90, 
+                                          hjust = 1,
+                                          vjust = 0.5),
               legend.key   = element_blank()) +
         labs(fill = element_blank() )
   
@@ -283,7 +334,9 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
               legend.text = element_text(size = 12),
               axis.title = element_blank(),
               axis.text.y  = element_blank(),
-              axis.text.x = element_text(angle = 90, hjust = 1)) +
+              axis.text.x = element_text(angle = 90, 
+                                         hjust = 1,
+                                         vjust = 0.5)) +
         labs(fill = expr_fill )
   
   # plot 
@@ -299,11 +352,11 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
 
 # differences in absolute lppd plots
 four_tile_plot(form_diff_lppd_df, 'elpd', 'airt', mod_perf_df,
-               c(-30,0),  expression(Delta*" LPPD"), 
-               'results/lppd_diff_prova_airt.tiff')
+               c(-60,0),  expression(Delta*" LPPD"), 
+               'results/lppd_diff_prova_airt_2020.tiff')
 four_tile_plot(form_diff_lppd_df, 'elpd', 'precip', mod_perf_df,
-               c(-30,0), expression(Delta*" LPPD"), 
-               'results/lppd_diff_prova_precip.tiff')
+               c(-60,0), expression(Delta*" LPPD"), 
+               'results/lppd_diff_prova_precip_2020.tiff')
 
 
 # black out models that did not converge --------------------------------

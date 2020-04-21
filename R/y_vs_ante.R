@@ -176,7 +176,7 @@ quant_ind_w <- function(post_in,vec){
 }
 
 # plot observed data versus predicted 
-y_yhat <- function( ii, slices ){
+y_yhat <- function( ii, slices, response ){
   
   post_i <- grep('yhat_', names(post_m) )
   y_resp <- post_m[slices[ii],post_i] %>% as.numeric
@@ -202,7 +202,7 @@ plot_yr <- function(mod, response){
   slices    <- seq(1,6000,length.out=200) %>% round()
   
   # y vs. pred ---------------------------------------------------
-  pl_df  <- lapply(1:200, y_yhat, slices) %>% bind_rows
+  pl_df  <- lapply(1:200, y_yhat, slices, response) %>% bind_rows
   
   y_yhat <- ggplot( pl_df ) +
               geom_point( aes(x,y,

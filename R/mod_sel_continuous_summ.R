@@ -37,12 +37,6 @@ mod_perform <- function(ii, res_folder){
 
   # summary info 
   
-  # result folder name
-  # res_folder<- paste0( dir_res )
-                      # response,
-                      # "/",
-                      # clim_var, pre_chelsa, interval)
-  
   # summary files names
   sum_files <- list.files(res_folder)[grep("mod_summaries_", list.files(res_folder) )] %>% 
                   stringr::str_subset(resp_clim)
@@ -96,6 +90,7 @@ input_df    <- expand.grid( clim_var = c("precip","airt"),
                             response = c("surv","grow","fec","log_lambda"),
                             interval = "",
                             stringsAsFactors = F)
+
 # model results in 
 dir          <- 'C:/Users/ac22qawo/sapropos_main/out'
 
@@ -164,30 +159,35 @@ spp_common_v <- all_intersect(spp_all,spp_l_v) %>%
                   Filter( function(x) x == nrow(input_df), .) %>% 
                   names
 
-
 setdiff(spp_all, spp_common_v)
+
 
 # keep spp for which data is available for every response X clim var combination
 mod_perf_df  <- mod_perf_df %>% 
-                  subset( species %in% spp_common_v )
+                  subset( species %in% spp_common_v ) 
 
 
 # Multiple Tileplots: differences in absolute lppd ---------------------------------------
 
-# species order - based on rep_yr, rep_n, species, model... 
-spp_df        <- mod_perf_df %>% 
-                    dplyr::select(species, model, rep_yr, rep_n) %>% 
-                    unique %>% 
-                    arrange(rep_yr, rep_n, species, model)
-
 # labels for models to plot on x-axis
 mod_labs    <- quote_bare( ctrl1, 
-                           yr1,   yr2,     yr3,
+                           yr1,    yr2,     yr3,
                            gaus1,  gaus2,   gaus3,
-                           simpl1, simpl2, simpl3,
-                           ridge1, ridge2, ridge3,
-                           gaus,   ridge,  simpl_n )
+                           simpl1, simpl2,  simpl3,
+                           ridge1, ridge2,  ridge3,
+                           gaus,   simpl_n, ridge )
   
+mod_perf_df  <- mod_perf_df %>% 
+                  subset( model %in% mod_labs )
+
+# species order - based on rep_yr, rep_n, species, model... 
+spp_df        <- mod_perf_df %>% 
+  dplyr::select(species, model, rep_yr, rep_n) %>% 
+  unique %>% 
+  arrange(rep_yr, rep_n, species, model)
+
+
+
 # resp    <- 'surv'
 # clim_v  <- 'airt'
 
@@ -353,10 +353,10 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
 # differences in absolute lppd plots
 four_tile_plot(form_diff_lppd_df, 'elpd', 'airt', mod_perf_df,
                c(-60,0),  expression(Delta*" LPPD"), 
-               'results/lppd_diff_prova_airt_2020.tiff')
+               'results/lppd_diff_prova_airt_2020_select.tiff')
 four_tile_plot(form_diff_lppd_df, 'elpd', 'precip', mod_perf_df,
                c(-60,0), expression(Delta*" LPPD"), 
-               'results/lppd_diff_prova_precip_2020.tiff')
+               'results/lppd_diff_prova_precip_2020_select.tiff')
 
 
 # black out models that did not converge --------------------------------

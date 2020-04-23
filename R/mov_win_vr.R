@@ -12,7 +12,7 @@ options( mc.cores = parallel::detectCores() )
 
 # climate predictor, response, months back, max. number of knots
 response  <- "grow"
-clim_var  <- "precip"
+clim_var  <- "airt"
 m_back    <- 36    
 st_dev    <- FALSE
 
@@ -57,27 +57,16 @@ if( nrow(mod_data$resp) < 6 ) stop( paste0("not enough temporal replication for 
 
 # Transform response variables (if needed) ------------------------------------------------------------------
 
-# transform survival/growth - ONLY if less than 30% data points are 1/0
+# replace 0 and 1s to allow fitting beta models
 if( response == "surv" | response == "grow" | grepl("PreRep", response) | grepl("Rep", response) ){
   
   raw_x <- mod_data$resp[,response]
-  pc_1  <- sum( raw_x == 1 ) / length(raw_x)
-  pc_0  <- sum( raw_x == 0 ) / length(raw_x)
+  raw_x <- replace( raw_x, raw_x == 1, 0.99999 )
+  raw_x <- replace( raw_x, raw_x == 9, 0.00001 )
   
-  # for survival
-  if( grepl("surv", response, ignore.case = T) & pc_1 < 0.3 ){
-    n     <- length(raw_x)
-    new_x <- ( raw_x*(n - 1) + 0.5 ) / n
-    mod_data$resp[,response] <- new_x
-  }
-  
-  # for growth
-  if( grepl("grow", response, ignore.case = T) & pc_0 < 0.3 ){
-    n     <- length(raw_x)
-    new_x <- ( raw_x*(n - 1) + 0.5 ) / n
-    mod_data$resp[,response] <- new_x
-  }
-  
+  # replace numbers
+  mod_data$resp[,response] <- new_x
+
 }
 
 # avoid absolute zeros
@@ -450,7 +439,7 @@ mod_names  <- data.frame( model = c("ctrl1",
                                     "gaus1",   "gaus2", "gaus3", 
                                     "simpl1",  "simpl2","simpl3", 
                                     "ridge1",  "ridge2","ridge3", 
-                                    "gaus",    "ridge", "simpl"),
+                                    "gaus",    "ridge", "simpl_n"),
                           mod_n = c(1:16),
                           stringsAsFactors = F )
 
@@ -461,13 +450,13 @@ loo_l      <- lapply(log_liks, loo) %>%
                               "loo_gaus1",   "loo_gaus2", "loo_gaus3", 
                               "loo_simpl1",  "loo_simpl2","loo_simpl3", 
                               "loo_ridge1",  "loo_ridge2","loo_ridge3", 
-                              "loo_gaus",    "loo_ridge", "loo_simpl") )
+                              "loo_gaus",    "loo_ridge", "loo_simpl_n") )
 loo_df     <- loo_compare(loo_l$loo_ctrl1,   
                           loo_l$loo_yr1,     loo_l$loo_yr2,    loo_l$loo_yr3, 
                           loo_l$loo_gaus1,   loo_l$loo_gaus2,  loo_l$loo_gaus3, 
                           loo_l$loo_simpl1,  loo_l$loo_simpl2, loo_l$loo_simpl3, 
                           loo_l$loo_ridge1,  loo_l$loo_ridge2, loo_l$loo_ridge3, 
-                          loo_l$loo_gaus,    loo_l$loo_ridge,  loo_l$loo_simpl
+                          loo_l$loo_gaus,    loo_l$loo_ridge,  loo_l$loo_simpl_n
                            ) %>%
                 as.data.frame %>%
                 tibble::add_column(model = gsub("loo_l\\$loo_","",row.names(.) ), 
@@ -484,13 +473,13 @@ waic_l    <- lapply(log_liks, waic) %>%
                            "waic_gaus1",   "waic_gaus2", "waic_gaus3", 
                            "waic_simpl1",  "waic_simpl2","waic_simpl3", 
                            "waic_ridge1",  "waic_ridge2","waic_ridge3", 
-                           "waic_gaus",    "waic_ridge", "waic_simpl") )
+                           "waic_gaus",    "waic_ridge", "waic_simpl_n") )
 waic_df   <- loo_compare(waic_l$waic_ctrl1,   
                           waic_l$waic_yr1,     waic_l$waic_yr2,    waic_l$waic_yr3, 
                           waic_l$waic_gaus1,   waic_l$waic_gaus2,  waic_l$waic_gaus3, 
                           waic_l$waic_simpl1,  waic_l$waic_simpl2, waic_l$waic_simpl3, 
                           waic_l$waic_ridge1,  waic_l$waic_ridge2, waic_l$waic_ridge3, 
-                          waic_l$waic_gaus,    waic_l$waic_ridge,  waic_l$waic_simpl) %>%
+                          waic_l$waic_gaus,    waic_l$waic_ridge,  waic_l$waic_simpl_n) %>%
                 as.data.frame %>%
                 tibble::add_column(model = gsub("waic_l\\$waic_","",row.names(.) ), 
                                    .before = 1) %>% 
@@ -534,6 +523,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
     n_lag   = ncol(clim_train), # maximum lag
     y_train = array(y_train),
     y_test  = array(y_test),
+    clim    = clim_train,
     clim_train = array(clim_train),
     clim_test  = array(clim_test),
     clim_means_train = array(clim_means_train), # climate averages over full 24-month window (for control model #2)
@@ -801,7 +791,8 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   fit_36_nest_crossval <- sampling(
     object = readRDS(paste0("R/stan/",family,"_dirichlet_nest_crossval.RDS")),
     data = dat_stan_crossval,
-    pars = c('theta_m', "theta_y",'alpha', 'beta', 'y_sd', 'pred_y', 'log_lik_test'),
+    pars = c('theta_m', "theta_y",'alpha', 'beta', 'y_sd', 
+             'pred_y', 'log_lik_test'),
     warmup = sim_pars$warmup,
     iter = sim_pars$iter,
     thin = sim_pars$thin,

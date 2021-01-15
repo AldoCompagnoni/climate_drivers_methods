@@ -14,12 +14,47 @@ library(grid)
 
 # climate predictor, response, months back, max. number of knots
 resp_l    <- c('log_lambda', 'surv', 'grow', 'fec')
-clim_var  <- "precip"
+clim_var  <- 'precip'
 m_back    <- 36    
 st_dev    <- FALSE
 input_df  <- expand.grid( response = resp_l,
                           clim_var = clim_var,
                           stringsAsFactors = F )
+
+
+# # store supercomputer results in adequate -----------------------------------
+# 
+# # model results in
+# dir           <- 'C:/Users/ac22qawo/sapropos_main/out_22.4.2020'
+# 
+# folder_df     <- expand.grid( response = resp_l,
+#                               clim_var = c('precip','airt'),
+#                               stringsAsFactors = F )
+# 
+# # move posteriors
+# move_post    <- function( ii, res_folder ){
+# 
+#   response  <- folder_df$response[ii]
+#   clim_var  <- folder_df$clim_var[ii]
+#   resp_clim <- paste0("_",response,"_",clim_var)
+# 
+#   # posterio files names
+#   post_f    <- list.files(res_folder)[grep("posterior_", list.files(res_folder) )] %>%
+#                       stringr::str_subset(resp_clim)
+#   new_f_n   <- paste0( 'results/mod_sel/',
+#                        gsub('array_vr-[0-9]{7}-[0-9]{1,3}-[0-9]{1,3}_', "", post_f )
+#                       )
+# 
+#   # directories
+#   file.copy( paste0(res_folder,'/',post_f),
+#              new_f_n,
+#              overwrite = TRUE )
+# 
+# }
+# 
+# # copy those files in correct folder
+# lapply( 1:nrow(folder_df), move_post, dir )
+
 
 # read data -----------------------------------------------------------------------------------------
 
@@ -180,9 +215,10 @@ y_yhat <- function( ii, slices, response ){
   
   post_i <- grep('yhat_', names(post_m) )
   y_resp <- post_m[slices[ii],post_i] %>% as.numeric
+  x_pred <- mod_data$resp[,response]
   
   # put it as a data frame
-  data.frame( x  = mod_data$resp[,response],
+  data.frame( x  = x_pred,
               y  = y_resp,
               gr = ii ) 
   
@@ -201,17 +237,16 @@ plot_yr <- function(mod, response){
   # parameters
   slices    <- seq(1,6000,length.out=200) %>% round()
   
-  # y vs. pred ---------------------------------------------------
-  pl_df  <- lapply(1:200, y_yhat, slices, response) %>% bind_rows
-  
-  y_yhat <- ggplot( pl_df ) +
-              geom_point( aes(x,y,
-                              group=gr),
-                          alpha = 0.1 ) +
-              geom_abline( lwd = 2 ) +
-              labs( x = 'Raw data',
-                    y = 'yhat (posterior)' )
-  
+  # # y vs. pred ---------------------------------------------------
+  # pl_df  <- lapply(1:200, y_yhat, slices, response) %>% bind_rows
+  # 
+  # y_yhat <- ggplot( pl_df ) +
+  #             geom_point( aes(x,y,
+  #                             group=gr),
+  #                         alpha = 0.1 ) +
+  #             geom_abline( lwd = 2 ) +
+  #             labs( x = 'Raw data',
+  #                   y = 'yhat (posterior)' )
 
   # plot model over data --------------------------------------------------------------
 
@@ -232,7 +267,6 @@ plot_yr <- function(mod, response){
                    x_ante,post_m,mod_data,response)
   pl_df  <- plotting_df(1,x_ante,post_mean,mod_data,response)
   
-    
   
   # plot it out
   clim_var_print <- gsub('ip','',clim_var)
@@ -248,7 +282,8 @@ plot_yr <- function(mod, response){
           ylab( response ) +
           xlab( 'Anomaly' ) +
           theme_minimal() +
-          ggtitle( spp_name )
+          ggtitle( mod ) +
+          theme( plot.title = element_text( hjust = 0.5) )
   
   for(ii in 1:200){
     
@@ -266,7 +301,8 @@ plot_yr <- function(mod, response){
       geom_line(data=plot_ii,
                 aes(x=x,y=y),
                 color = 'grey' )  +
-      theme_minimal()
+      theme_minimal()  +
+      theme( plot.title = element_text( hjust = 0.5) )
     
     # y vs. antecedent
     y_raw <- unique(pl_df$alpha) +
@@ -311,12 +347,12 @@ plot_yr <- function(mod, response){
   clim_var_print  <<- clim_var_print
   
   # output
-  list( y_yhat, y_x, kd_p )
+  list( y_x, kd_p ) #y_yhat, 
   
 }
 
 
-# plot yearly models
+# plot GAUSSIAN moving window models
 plot_gaus <- function(mod, response){
   
   # load posterior and mean posterior
@@ -327,16 +363,16 @@ plot_gaus <- function(mod, response){
   slices    <- seq(1,6000,length.out=200) %>% round()
   
   
-  # y vs. pred ---------------------------------------------------
-  pl_df  <- lapply(1:200, y_yhat, slices) %>% bind_rows
-  
-  y_yhat <- ggplot( pl_df ) +
-              geom_point( aes(x,y,
-                              group=gr),
-                          alpha = 0.1 ) +
-              geom_abline( lwd = 2 ) +
-              labs( x = 'Raw data',
-                    y = 'yhat (posterior)' )
+  # # y vs. pred ---------------------------------------------------
+  # pl_df  <- lapply(1:200, y_yhat, slices) %>% bind_rows
+  # 
+  # y_yhat <- ggplot( pl_df ) +
+  #             geom_point( aes(x,y,
+  #                             group=gr),
+  #                         alpha = 0.1 ) +
+  #             geom_abline( lwd = 2 ) +
+  #             labs( x = 'Raw data',
+  #                   y = 'yhat (posterior)' )
   
   
   # plot model over data --------------------------------------------------------------
@@ -394,7 +430,8 @@ plot_gaus <- function(mod, response){
     ylab( response ) +
     xlab( 'X antecedent' ) +
     theme_minimal() +
-    ggtitle( spp_name )
+    ggtitle( gsub('gaus',"gaus yr",mod) ) +
+    theme( plot.title = element_text( hjust = 0.5) )
   
   for(ii in 1:200){
     
@@ -412,7 +449,8 @@ plot_gaus <- function(mod, response){
       geom_line(data=plot_ii,
                 aes(x=x,y=y),
                 color = 'grey' )  +
-      theme_minimal()
+      theme_minimal() +
+      theme( plot.title = element_text( hjust = 0.5) )
     
     # y vs. antecedent
     y_raw <- unique(pl_df$alpha) +
@@ -479,7 +517,7 @@ plot_gaus <- function(mod, response){
   clim_var_print  <<- clim_var_print
   
   # output
-  list( y_yhat, y_x, weights_p, kd_p )
+  list( y_x, weights_p, kd_p ) #y_hat
   
 }
 
@@ -496,16 +534,16 @@ plot_simpl <- function(mod, response){
   slices    <- seq(1,6000,length.out=200) %>% round()
   
   
-  # y vs. pred ---------------------------------------------------
-  pl_df  <- lapply(1:200, y_yhat, slices) %>% bind_rows
-  
-  y_yhat <- ggplot( pl_df ) +
-              geom_point( aes(x,y,
-                              group=gr),
-                          alpha = 0.1 ) +
-              geom_abline( lwd = 2 ) +
-              labs( x = 'Raw data',
-                    y = 'yhat (posterior)' )
+  # # y vs. pred ---------------------------------------------------
+  # pl_df  <- lapply(1:200, y_yhat, slices) %>% bind_rows
+  # 
+  # y_yhat <- ggplot( pl_df ) +
+  #             geom_point( aes(x,y,
+  #                             group=gr),
+  #                         alpha = 0.1 ) +
+  #             geom_abline( lwd = 2 ) +
+  #             labs( x = 'Raw data',
+  #                   y = 'yhat (posterior)' )
   
   
   # plot model over data --------------------------------------------------------------
@@ -534,7 +572,6 @@ plot_simpl <- function(mod, response){
   
   # posterior
   pl_l   <- lapply(slices, plotting_df, x_ante, post_m, mod_data, response)
-  w_v_l  <- lapply(slices, ante_post, post_m)
   
   
   # plot it out
@@ -550,7 +587,8 @@ plot_simpl <- function(mod, response){
     ylab( response ) +
     xlab( 'X antecedent' ) +
     theme_minimal() +
-    ggtitle( spp_name )
+    ggtitle( gsub('simpl',"simpl yr",mod) ) +
+    theme( plot.title = element_text( hjust = 0.5) )
   
   for(ii in 1:200){
     
@@ -568,7 +606,8 @@ plot_simpl <- function(mod, response){
       geom_line(data=plot_ii,
                 aes(x=x,y=y),
                 color = 'grey' )  +
-      theme_minimal()
+      theme_minimal() +
+      theme( plot.title = element_text( hjust = 0.5) )
     
     # y vs. antecedent
     y_raw <- unique(pl_df$alpha) +
@@ -631,7 +670,7 @@ plot_simpl <- function(mod, response){
   clim_var_print  <<- clim_var_print
   
   # output
-  list( y_yhat, y_x, weights_p, kd_p )
+  list( y_x, weights_p, kd_p ) # y_yhat
   
 }
 
@@ -647,7 +686,10 @@ plot_ridge <- function(mod, response){
   
   
   # y vs. pred ---------------------------------------------------
-  pl_df  <- lapply(1:200, y_yhat, slices) %>% bind_rows
+  pl_df  <- lapply(1:200, 
+                   y_yhat, 
+                   slices,
+                   response) %>% bind_rows
   
   y_yhat <- ggplot( pl_df ) +
               geom_point( aes(x,y,
@@ -669,7 +711,9 @@ plot_ridge <- function(mod, response){
                                       ymax=upr)) +
                   ylab( expression(beta*' values') ) +
                   xlab('month') +
-                  theme_minimal()
+                  theme_minimal() +
+                  ggtitle( gsub('ridge',"ridge yr",mod) ) +
+                  theme( plot.title = element_text( hjust = 0.5) )
   
   # plot it out
   clim_var_print <- gsub('ip','',clim_var)
@@ -690,7 +734,7 @@ plot_ridge <- function(mod, response){
 
 # FINAL PLOTTING FUNCTION -----------------------------------
 
-
+# master function to plot everything
 plot_all <- function(ii, response, clim_var, mod, foo ){
   
   # flag the species
@@ -712,24 +756,34 @@ plot_all <- function(ii, response, clim_var, mod, foo ){
   
   # plot plots together
   if( mod == 'yr' ){
-    out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]], grob_yr1[[3]], 
-                              grob_yr2[[1]], grob_yr2[[2]], grob_yr2[[3]], 
-                              grob_yr3[[1]], grob_yr3[[2]], grob_yr3[[3]], 
-                              ncol=3, 
-                              main = textGrob("Daily QC: Blue",
-                                              gp=gpar(fontsize=20,font=3)) ) 
+    out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]], 
+                              grob_yr2[[1]], grob_yr2[[2]], 
+                              grob_yr3[[1]], grob_yr3[[2]],
+                              ncol = 2, 
+                              top  = textGrob( spp_name,
+                                               gp = gpar(fontsize=20,
+                                                         font=3) ) 
+                              ) 
   }
   if( mod %in% c('gaus','simpl') ){
-    out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]], grob_yr1[[3]], grob_yr1[[4]], 
-                              grob_yr2[[1]], grob_yr2[[2]], grob_yr2[[3]], grob_yr2[[4]], 
-                              grob_yr3[[1]], grob_yr3[[2]], grob_yr3[[3]], grob_yr3[[4]], 
-                              ncol=4 )
+    out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]], grob_yr1[[3]], 
+                              grob_yr2[[1]], grob_yr2[[2]], grob_yr2[[3]], 
+                              grob_yr3[[1]], grob_yr3[[2]], grob_yr3[[3]],
+                              ncol=3, 
+                              top  = textGrob( spp_name,
+                                               gp = gpar(fontsize=20,
+                                                         font=3) ) 
+                              )
   }
   if( mod == 'ridge' ){
     out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]],
                               grob_yr2[[1]], grob_yr2[[2]],
                               grob_yr3[[1]], grob_yr3[[2]],
-                              ncol=2 )
+                              ncol=2, 
+                              top  = textGrob( spp_name,
+                                               gp = gpar(fontsize=20,
+                                                         font=3) ) 
+                              )
   }
   
   ggsave(file =
@@ -785,3 +839,29 @@ lapply(1:38, plot_all, 'grow', 'precip', 'gaus',  plot_gaus)
 lapply(1:38, plot_all, 'grow', 'precip', 'simpl', plot_simpl)
 lapply(1:38, plot_all, 'grow', 'precip', 'ridge', plot_ridge)
 
+
+
+
+# log_lambda
+lapply(1:38, plot_all, 'log_lambda', 'precip', 'yr',    plot_yr)
+lapply(1:38, plot_all, 'log_lambda', 'precip', 'gaus',  plot_gaus)
+lapply(1:38, plot_all, 'log_lambda', 'precip', 'simpl', plot_simpl)
+lapply(1:38, plot_all, 'log_lambda', 'precip', 'ridge', plot_ridge)
+
+# fec
+lapply(1:38, plot_all, 'fec', 'precip', 'yr',    plot_yr)
+lapply(1:38, plot_all, 'fec', 'precip', 'gaus',  plot_gaus)
+lapply(1:38, plot_all, 'fec', 'precip', 'simpl', plot_simpl)
+lapply(1:38, plot_all, 'fec', 'precip', 'ridge', plot_ridge)
+
+# surv
+lapply(1:38, plot_all, 'surv', 'precip', 'yr',    plot_yr)
+lapply(1:38, plot_all, 'surv', 'precip', 'gaus',  plot_gaus)
+lapply(1:38, plot_all, 'surv', 'precip', 'simpl', plot_simpl)
+lapply(1:38, plot_all, 'surv', 'precip', 'ridge', plot_ridge)
+
+# grow
+lapply(1:38, plot_all, 'grow', 'precip', 'yr',    plot_yr)
+lapply(1:38, plot_all, 'grow', 'precip', 'gaus',  plot_gaus)
+lapply(1:38, plot_all, 'grow', 'precip', 'simpl', plot_simpl)
+lapply(1:38, plot_all, 'grow', 'precip', 'ridge', plot_ridge)

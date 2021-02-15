@@ -92,7 +92,8 @@ input_df    <- expand.grid( clim_var = c("precip","airt"),
                             stringsAsFactors = F)
 
 # model results in 
-dir          <- 'C:/Users/ac22qawo/sapropos_main/out'
+# dir          <- 'C:/Users/ac22qawo/sapropos_main/out_22.4.2020'
+dir          <- 'C:/Users/ac22qawo/sapropos_main/out_2021'
 
 # ALL model information
 mod_perf_df  <- lapply(1:nrow(input_df), mod_perform, dir) %>%
@@ -110,6 +111,11 @@ spp          <- read.csv("data/all_demog_updt.csv",
                   .$SpeciesAuthor %>% 
                   unique
 
+# family
+family_df    <- data.frame( response = c("surv","grow","fec","log_lambda"),
+                            family   = c('beta','beta','gamma','normal'),
+                            stringsAsFactors = F )
+
 # species df
 spp_df       <- data.frame( species = spp,
                             ii      = 1:39 )
@@ -123,7 +129,9 @@ spp_all_df   <- expand.grid( clim_var = c("precip","airt"),
                   mutate( job_n = 1:nrow(.) )
 
 # Missing simulations
-miss_df      <- anti_join( spp_all_df, mod_perf_df ) 
+miss_df      <- anti_join( spp_all_df, mod_perf_df ) %>% 
+                  full_join( family_df ) %>% 
+                  subset( !grepl('Daphne',species) )
 
 write.csv(miss_df,
           'C:/Users/ac22qawo/sapropos_main/miss_sims.csv',
@@ -174,22 +182,29 @@ mod_labs    <- quote_bare( ctrl1,
                            yr1,    yr2,     yr3,
                            gaus1,  gaus2,   gaus3,
                            simpl1, simpl2,  simpl3,
-                           ridge1, ridge2,  ridge3,
-                           gaus,   simpl_n, ridge )
+                           ridge1, ridge2,  ridge3 )
+                           # gaus,   simpl_n, ridge )
+
+mod_no_r    <- quote_bare( ctrl1, 
+                           yr1,    yr2,     yr3,
+                           gaus1,  gaus2,   gaus3,
+                           simpl1, simpl2,  simpl3 )
+                           # gaus,   simpl_n )
+
   
 mod_perf_df  <- mod_perf_df %>% 
                   subset( model %in% mod_labs )
 
+mod_no_r_df  <- mod_perf_df %>% 
+                  subset( model %in% mod_no_r )
+
 # species order - based on rep_yr, rep_n, species, model... 
 spp_df        <- mod_perf_df %>% 
-  dplyr::select(species, model, rep_yr, rep_n) %>% 
-  unique %>% 
-  arrange(rep_yr, rep_n, species, model)
+                  dplyr::select(species, model, rep_yr, rep_n) %>% 
+                  unique %>% 
+                  arrange(rep_yr, rep_n, species, model)
 
-
-
-# resp    <- 'surv'
-# clim_v  <- 'airt'
+clim_v  = 'precip'
 
 # format the differences in lppd
 form_diff_lppd_df <- function(resp, clim_v, mod_df){
@@ -263,6 +278,27 @@ form_diff_lppd_df <- function(resp, clim_v, mod_df){
     
 }
 
+
+# # test --------------------------------------------------------
+# resp    <- 'surv'
+# clim_v  <- 'prec'
+# mod_df  <- mod_perf_df
+# 
+# all_demo = form_diff_lppd_df(resp,'precip', mod_perf_df) %>% 
+#               subset( grepl('Eryngium_cuneifolium',species ) )
+# 
+# nor_demo = form_diff_lppd_df(resp,'precip', mod_no_r_df) %>% 
+#               subset( grepl('Eryngium_cuneifolium',species ) )
+# 
+# all_demo
+# nor_demo
+# 
+# subset(mod_perf_df, species == 'Eryngium_cuneifolium') %>% 
+#   subset( clim_var == 'precip' ) %>% 
+#   subset( response == 'grow' ) %>% 
+#   dplyr::select( model, elpd, clim_var, response )
+
+# ----------------------------------------------------
 
 # four tile plot 
 four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim, 
@@ -353,10 +389,19 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
 # differences in absolute lppd plots
 four_tile_plot(form_diff_lppd_df, 'elpd', 'airt', mod_perf_df,
                c(-60,0),  expression(Delta*" LPPD"), 
-               'results/lppd_diff_prova_airt_2020_select.tiff')
+               'results/lppd_diff_airt_2021.tiff')
 four_tile_plot(form_diff_lppd_df, 'elpd', 'precip', mod_perf_df,
                c(-60,0), expression(Delta*" LPPD"), 
-               'results/lppd_diff_prova_precip_2020_select.tiff')
+               'results/lppd_diff_precip_2021.tiff')
+
+# differences in absolute lppd plots
+four_tile_plot(form_diff_lppd_df, 'elpd', 'airt', mod_no_r_df,
+               c(-60,0),  expression(Delta*" LPPD"), 
+               'results/lppd_diff_airt_NO_RIDGE.tiff')
+four_tile_plot(form_diff_lppd_df, 'elpd', 'precip', mod_no_r_df,
+               c(-60,0), expression(Delta*" LPPD"), 
+               'results/lppd_diff_precip_NO_RIDGE.tiff')
+
 
 
 # black out models that did not converge --------------------------------

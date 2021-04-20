@@ -12,6 +12,57 @@ library(testthat)
 library(rstan)
 library(loo)
 library(evd)
+library(DirichletReg)
+
+# SIMPLIFIED FIGURE FIRST! ----------------------------
+
+tiff( 'results/figure1.tiff',
+      # width = 480, height = 480, units = "px", pointsize = 12,
+      width = 6.3, height = 6.3, unit = 'in', res = 600,
+      compression = 'lzw')
+
+par(mfrow = c(1,1), mar = c(3.5,3.5,0.2,0.2), 
+    mgp = c(2,0.6,0),
+    oma = c(0,0,0,0) )
+
+# A
+plot(1:12,rep(1,12), type = 'n',
+     ylim = c(0,0.2), 
+     ylab = 'Weight', 
+     xlab = 'Month', cex.lab = 2 )
+abline( h = 0, lty=2)
+
+# year 2 mean
+segments(1,0,1,1/12, lwd = 4,     col = "#E69F00")
+segments(1,1/12,12,1/12, lwd = 4, col = "#E69F00")
+segments(12,1/12,12,0, lwd = 4,   col = "#E69F00")
+
+# Dirichlet
+set.seed(107)
+lines(1:12, rdirichlet( 1, rep(3,12)),
+      col = '#59B4E9', lwd=4)
+
+# normal
+prod_norm <- function( m, s ){
+  dnorm( 1:12, mean = m, sd = s ) / 
+    sum( dnorm( 1:12, mean = m, sd = s) )
+}
+lines( 1:12, prod_norm(2, 4), 
+       lwd = 4, col = '#009E73' )
+
+legend('topright', 
+       legend = c('Clim. summary',
+                  'Moving windows',
+                  'SAD'),
+       cex = 1.5,
+       lwd = 4, 
+       bty = 'n',
+       col = c('#E69F00','#009E73','#59B4E9'))
+
+dev.off()
+
+
+
 
 # set rstan options
 rstan_options( auto_write = TRUE )

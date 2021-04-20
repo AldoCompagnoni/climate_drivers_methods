@@ -93,7 +93,8 @@ input_df    <- expand.grid( clim_var = c("precip","airt"),
 
 # model results in 
 # dir          <- 'C:/Users/ac22qawo/sapropos_main/out_22.4.2020'
-dir          <- 'C:/Users/ac22qawo/sapropos_main/out_2021'
+# dir          <- 'C:/Users/ac22qawo/sapropos_main/out_2021'
+dir          <- 'C:/Users/ac22qawo/sapropos_main/out_2021.2'
 
 # ALL model information
 mod_perf_df  <- lapply(1:nrow(input_df), mod_perform, dir) %>%
@@ -184,6 +185,11 @@ mod_labs    <- quote_bare( ctrl1,
                            simpl1, simpl2,  simpl3,
                            ridge1, ridge2,  ridge3 )
                            # gaus,   simpl_n, ridge )
+
+mod_labs    <- quote_bare( ctrl1, 
+                           yr1,   gaus1, simpl1, ridge1,
+                           yr2,   gaus2, simpl2, ridge2,
+                           yr3,   gaus3, simpl3, ridge3 )
 
 mod_no_r    <- quote_bare( ctrl1, 
                            yr1,    yr2,     yr3,
@@ -301,14 +307,16 @@ form_diff_lppd_df <- function(resp, clim_v, mod_df){
 # ----------------------------------------------------
 
 # four tile plot 
-four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim, 
-                           expr_fill, file_title){
+four_tile_plot <- function(format_function, fill_var,  clim_v, 
+                           mod_df, var_lim, expr_fill, file_title){
   
   # plot it out
   p1 <- ggplot(format_function('surv', clim_v, mod_df), aes(model, species)) +
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
+        geom_vline( xintercept = c(1.5,5.5,9.5),
+                    col = 'red', lwd=0.5, lty=2) + 
         scale_fill_viridis( guide = F, limits = var_lim ) + #
         ggtitle('Survival') +
         theme(title        = element_text(angle = 0, hjust = 0.5, size = 10), 
@@ -326,6 +334,8 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
+        geom_vline( xintercept = c(1.5,5.5,9.5),
+                    col = 'red', lwd=0.5, lty=2) + 
         scale_fill_viridis( limits = var_lim ) + #
         guides(fill = F ) +
         ggtitle('Growth') +
@@ -344,6 +354,8 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size = '0.7',
                        shape = mod_rank) ) +
+        geom_vline( xintercept = c(1.5,5.5,9.5),
+                    col = 'red', lwd=0.5, lty=2) + 
         scale_fill_viridis( limits = var_lim ) + #
         guides(fill = F ) +
         ggtitle('Fecundity') +
@@ -363,7 +375,9 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
         geom_tile(aes_string(fill = fill_var), color = "white") +
         geom_point(aes(size  = '0.7',
                        shape = mod_rank) ) +
-        scale_fill_viridis( limits = var_lim ) + #
+        geom_vline( xintercept = c(1.5,5.5,9.5),
+                     col = 'red', lwd=0.5, lty=2) + 
+        scale_fill_viridis( limits = var_lim ) + 
         ggtitle('Log Lambda') +
         theme(title        = element_text(angle = 0, hjust = 0.5, size = 10),
               legend.title = element_text(size = 10),
@@ -378,8 +392,8 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
   # plot 
   tiff( file_title, 
         unit="in", width=10, height=6.3, res=600,compression="lzw" )
-  grid.arrange(nrow = 1,
-               grobs = list(p1, p2, p3, p4),
+  grid.arrange(nrow   = 1,
+               grobs  = list(p1, p2, p3, p4),
                widths = c(1.8, 0.9, 0.9, 1.4),
                layout_matrix = rbind(c(1, 2, 3, 4)) )
   dev.off()
@@ -389,10 +403,10 @@ four_tile_plot <- function(format_function, fill_var, clim_v, mod_df, var_lim,
 # differences in absolute lppd plots
 four_tile_plot(form_diff_lppd_df, 'elpd', 'airt', mod_perf_df,
                c(-60,0),  expression(Delta*" LPPD"), 
-               'results/lppd_diff_airt_2021.tiff')
+               'results/lppd_diff_airt_2021.3_order.tiff')
 four_tile_plot(form_diff_lppd_df, 'elpd', 'precip', mod_perf_df,
                c(-60,0), expression(Delta*" LPPD"), 
-               'results/lppd_diff_precip_2021.tiff')
+               'results/lppd_diff_precip_2021.3_order.tiff')
 
 # differences in absolute lppd plots
 four_tile_plot(form_diff_lppd_df, 'elpd', 'airt', mod_no_r_df,
@@ -403,6 +417,287 @@ four_tile_plot(form_diff_lppd_df, 'elpd', 'precip', mod_no_r_df,
                'results/lppd_diff_precip_NO_RIDGE.tiff')
 
 
+# best model tables/tests ---------------------------------
+
+# best models tables
+best_mod_tab <- function( resp, clim_v ){
+  
+  form_diff_lppd_df( resp, clim_v, mod_perf_df) %>% 
+    subset( mod_rank == 1) %>% 
+    mutate( model = gsub('[0-9]','',model) ) %>% 
+    count( model ) %>% 
+    arrange( desc(n) ) %>% 
+    mutate( resp = resp )
+  
+}
+
+# put its ALL together
+best_mods_out <- list( 
+      best_mod_tab( 'surv', 'precip' ),
+      best_mod_tab( 'grow', 'precip' ),
+      best_mod_tab( 'fec', 'precip' ),
+      best_mod_tab( 'log_lambda', 'precip' ),
+      best_mod_tab( 'surv', 'airt' ),
+      best_mod_tab( 'grow', 'airt' ),
+      best_mod_tab( 'fec', 'airt' ),
+      best_mod_tab( 'log_lambda', 'airt' )
+      ) %>% 
+  bind_rows %>% 
+  group_by( model ) %>% 
+  summarise( n = sum(n) ) %>% 
+  ungroup %>% 
+  arrange( desc(n) ) %>% 
+  mutate( prop_best = n / sum(n) )
+
+# write it
+write.csv( best_mods_out, 'results/best_mods_prop.csv',
+           row.names=F )
+
+
+# Vital rates breakdown 
+best_mods_out <- list( 
+  best_mod_tab( 'surv', 'precip' ),
+  best_mod_tab( 'grow', 'precip' ),
+  best_mod_tab( 'fec', 'precip' ),
+  best_mod_tab( 'log_lambda', 'precip' ),
+  best_mod_tab( 'surv', 'airt' ),
+  best_mod_tab( 'grow', 'airt' ),
+  best_mod_tab( 'fec', 'airt' ),
+  best_mod_tab( 'log_lambda', 'airt' ) ) %>% 
+  bind_rows %>% 
+  group_by( model, resp ) %>% 
+  summarise( n = sum(n) ) %>% 
+  ungroup %>% 
+  mutate( prop_best = n / sum(n) ) %>% 
+  arrange( resp, desc(prop_best) ) %>% 
+  write.csv(  'results/best_vr_mods_prop.csv',
+              row.names=F )
+
+
+# best models tables
+best_mod_prop <- function( resp, clim_v ){
+  
+  form_diff_lppd_df( resp, clim_v, mod_perf_df) %>% 
+    subset( mod_rank == 1) %>% 
+    mutate( model = gsub('[0-9]','',model) ) %>% 
+    count( model ) %>% 
+    arrange( desc(n) ) %>% 
+    mutate( prop = n / sum(n),
+            type = paste0(resp,'_',clim_v) )
+  
+}
+
+# put its ALL together
+mods_props <- list( 
+  best_mod_prop( 'surv', 'precip' ),
+  best_mod_prop( 'grow', 'precip' ),
+  best_mod_prop( 'fec', 'precip' ),
+  best_mod_prop( 'log_lambda', 'precip' ),
+  best_mod_prop( 'surv', 'airt' ),
+  best_mod_prop( 'grow', 'airt' ),
+  best_mod_prop( 'fec', 'airt' ),
+  best_mod_prop( 'log_lambda', 'airt' ) ) %>% 
+  bind_rows %>% 
+  mutate( prop_tras = asin(sqrt(prop)) ) 
+  
+# Tukey test on proportion of models selected
+mods_props %>% 
+  subset( !(model %in% c('ctrl','yr')) ) %>% 
+  aov( prop_tras ~ model , data=.) %>% 
+  TukeyHSD %>% 
+  .$model %>% 
+  write.csv( 'results/best_mods_tukey.csv' )
+
+mods_props %>% 
+  subset( !(model %in% c('ctrl','yr')) ) %>% 
+  boxplot( prop ~ model, data=.)
+
+mods_props %>% 
+  subset( !(model %in% c('ctrl','yr')) ) %>% 
+  group_by( model ) %>% 
+  summarise( mean_p   = mean(prop),
+             median_p = median(prop) )
+
+
+# Continuous tests ---------------------------------------
+
+# format the differences in lppd
+delta_lppd_pos_df <- function(resp, clim_v, mod_df){
+  
+  perf_by_spp <- mod_df %>%
+                  subset( response == resp & clim_var == clim_v ) %>%
+                  dplyr::select(species, model, rep_yr, rep_n, elpd) %>% 
+                  mutate( elpd = replace(elpd, elpd == -Inf, NA)) %>%
+                  spread(model, elpd )
+  
+  perf_mat    <- perf_by_spp %>% 
+                    dplyr::select(-species, -rep_yr, -rep_n) %>% t
+  
+  # get minimum of maximum values
+  get_max     <- function(ii) which(perf_mat[,ii] == max(perf_mat[,ii],na.rm=T))
+  
+  # species sequence
+  spp_seq     <- 1:ncol(perf_mat)
+  
+  # matrix of benchmark ids
+  max_ids     <- sapply(spp_seq, get_max) %>% cbind( spp_seq )
+  
+  # benchmark values
+  max_val     <- perf_mat[max_ids]
+  
+  # differences matrix
+  diff_mat    <- sweep(perf_mat, 2,  max_val, FUN='-') 
+  diff_mat    <- -diff_mat
+  
+  # differences data frame
+  long_df <- diff_mat %>%
+    as.data.frame %>%
+    setNames( perf_by_spp$species ) %>%
+    tibble::add_column(model = row.names(.), .before=1) %>%
+    gather(species,elpd, setdiff(names(.),'model') ) %>% 
+    full_join( spp_df ) %>% 
+    mutate( model = factor(model, levels = mod_labs) ) %>%
+    left_join( dplyr::select(perf_by_spp, species, rep_yr, rep_n) ) %>% 
+    arrange( rep_yr, rep_n, species, model )  %>% 
+    mutate( species = replace(species,
+                              grepl('Eriogonum',species),
+                              'Eriogonum_longifolium...') ) %>% 
+    mutate( species = factor(species, levels = unique(species)) )
+  
+  long_df %>% 
+    mutate( resp     = resp,
+            clim_var = clim_v )
+  
+}
+
+# lppd weight make
+lppd_weight_make <- function(resp, clim_v, mod_df){
+  
+  perf_by_spp <- mod_df %>%
+    subset( response == resp & clim_var == clim_v ) %>%
+    dplyr::select(species, model, rep_yr, rep_n, elpd) %>% 
+    mutate( elpd = replace(elpd, elpd == -Inf, NA)) %>%
+    spread(model, elpd )
+  
+  perf_mat    <- perf_by_spp %>% 
+    dplyr::select(-species, -rep_yr, -rep_n) %>% t
+  
+  # get minimum of maximum values
+  get_max     <- function(ii) which(perf_mat[,ii] == max(perf_mat[,ii],na.rm=T))
+  
+  # species sequence
+  spp_seq     <- 1:ncol(perf_mat)
+  
+  # matrix of benchmark ids
+  max_ids     <- sapply(spp_seq, get_max) %>% cbind( spp_seq )
+  
+  # benchmark values
+  max_val     <- perf_mat[max_ids]
+  
+  # differences matrix
+  diff_mat    <- sweep( perf_mat, 2,  max_val, FUN='-' )
+  weight_exp  <- function(x) exp(-0.5*x)
+  exp_mat     <- apply( diff_mat, 2, weight_exp )
+  sum_mat     <- apply( exp_mat, 2, sum, na.rm=T )
+  weight_mat  <- sweep( exp_mat, 2, sum_mat, FUN = '/' )
+  
+  # differences data frame
+  long_df <- weight_mat %>%
+    as.data.frame %>%
+    setNames( perf_by_spp$species ) %>%
+    tibble::add_column(model = row.names(.), .before=1) %>%
+    gather(species, lppd_weight, setdiff(names(.),'model') ) %>% 
+    full_join( spp_df ) %>% 
+    mutate( model = factor(model, levels = mod_labs) ) %>%
+    # left_join( dplyr::select(perf_by_spp, species, rep_yr, rep_n) ) %>% 
+    arrange( rep_yr, rep_n, species, model )  %>% 
+    mutate( species = replace(species,
+                              grepl('Eriogonum',species),
+                              'Eriogonum_longifolium...') ) %>% 
+    mutate( species = factor(species, levels = unique(species)) )
+  
+  # add response variable and climate variable
+  long_df %>% 
+    mutate( resp     = resp,
+            clim_var = clim_v )
+  
+}
+
+# single data frame with positive delta lppd logged
+pos_delta_lppd <- list( delta_lppd_pos_df( 'surv',       'precip', mod_perf_df ),
+                        delta_lppd_pos_df( 'grow',       'precip', mod_perf_df ),
+                        delta_lppd_pos_df( 'fec',        'precip', mod_perf_df ),
+                        delta_lppd_pos_df( 'log_lambda', 'precip', mod_perf_df ),
+                        delta_lppd_pos_df( 'surv',       'airt',   mod_perf_df ),
+                        delta_lppd_pos_df( 'grow',       'airt',   mod_perf_df ),
+                        delta_lppd_pos_df( 'fec',        'airt',   mod_perf_df ),
+                        delta_lppd_pos_df( 'log_lambda', 'airt',   mod_perf_df ) ) %>% 
+              bind_rows %>% 
+  mutate( model    = as.character(model) ) %>% 
+  mutate( model    = gsub('[0-9]','',model) ) %>% 
+  mutate( model    = as.factor(model) ) %>% 
+  mutate( elpd     = replace(elpd, elpd == 0, 0.00003554812) ) %>% 
+  mutate( log_elpd = log(elpd) )
+        
+
+# single data frame with positive delta lppd logged
+lppd_weight_df <- list( lppd_weight_make( 'surv',       'precip', mod_perf_df ),
+                        lppd_weight_make( 'grow',       'precip', mod_perf_df ),
+                        lppd_weight_make( 'fec',        'precip', mod_perf_df ),
+                        lppd_weight_make( 'log_lambda', 'precip', mod_perf_df ),
+                        lppd_weight_make( 'surv',       'airt',   mod_perf_df ),
+                        lppd_weight_make( 'grow',       'airt',   mod_perf_df ),
+                        lppd_weight_make( 'fec',        'airt',   mod_perf_df ),
+                        lppd_weight_make( 'log_lambda', 'airt',   mod_perf_df ) ) %>% 
+  bind_rows %>% 
+  mutate( lppd_weight_asin = asin(sqrt(lppd_weight)) ) %>% 
+  mutate( model_type = 'mw' ) %>% 
+  mutate( model_type = replace( model_type, grepl('yr',model), 'yr') ) %>% 
+  mutate( model_type = replace( model_type, grepl('ctrl',model), 'ctrl') ) %>%
+  mutate( model_type = as.factor(model_type) ) %>% 
+  mutate( mv_type    = as.character(model) ) %>% 
+  mutate( mv_type    = gsub('[0-9]','',model) ) %>% 
+  mutate( mod_clim   = as.character(model) ) %>% 
+  mutate( mod_clim   = replace( mod_clim, mod_clim != 'ctrl1', 'climate') ) %>% 
+  mutate( mod_clim   = factor(mod_clim, levels = c('ctrl1','climate')) )
+      
+# Hypothesis 1: do moving window models perform better than controls?
+h1_aov <- aov( lppd_weight_asin ~ model_type, 
+               data = lppd_weight_df)
+  
+# Tukey test
+TukeyHSD(h1_aov) %>% 
+  .$model_type %>% 
+  write.csv( 'results/mod_type_comparison_tukey.csv' )
+
+# Hypothesis 2: compare among moving window models
+aov( lppd_weight_asin ~ mv_type, 
+                 data = subset(lppd_weight_df, !(model_type == 'ctrl' | model_type == 'yr') ) 
+                 ) %>% 
+  TukeyHSD %>% 
+  .$mv_type %>% 
+  write.csv( 'results/movwin_type_comparison_tukey.csv' )
+
+# Hypothesis 3: effect of years of replication 
+h3_rep_yr <- lm( lppd_weight_asin ~ rep_yr, 
+                 data = subset(lppd_weight_df, 
+                               !(model_type == 'ctrl' | model_type == 'yr') ) 
+                )
+
+# store results
+h3_rep_yr %>% 
+  summary %>% 
+  .$coefficients %>% 
+  write.csv( 'results/rep_yr_and_predperf_mw.csv' )
+
+# Hypothesis 4: are vital rates more predictable?
+lm( lppd_weight_asin ~ mod_clim + mod_clim:resp, 
+    data = lppd_weight_df) %>% 
+  summary %>% 
+  .$coefficients %>% 
+  write.csv( 'results/vital_rates_predperf.csv' )
+
+
 
 # black out models that did not converge --------------------------------
 mod_diag <- function(ii){
@@ -410,6 +705,7 @@ mod_diag <- function(ii){
   clim_var <- input_df$clim_var[ii]
   response <- input_df$response[ii]
   interval <- input_df$interval[ii]
+  
   resp_clim<- paste0("_",response,"_",clim_var)
   
   # read lambda/clim data 

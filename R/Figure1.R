@@ -51,9 +51,9 @@ lines( 1:12, prod_norm(2, 4),
        lwd = 4, col = '#009E73' )
 
 legend('topright', 
-       legend = c('Clim. summary',
-                  'Moving windows',
-                  'SAD'),
+       legend = c('CSM',
+                  'WMM',
+                  'SAM'),
        cex = 1.5,
        lwd = 4, 
        bty = 'n',

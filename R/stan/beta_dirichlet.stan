@@ -35,7 +35,7 @@ transformed parameters {
 model {
   
   // priors
-  alpha ~ normal(0,1);
+  alpha ~ normal(0,0.5);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
   theta ~ dirichlet( rep_vector(1.0, n_lag) );

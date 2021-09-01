@@ -24,6 +24,11 @@ transformed parameters {
 
 model {
 
+  // parameters of data model
+  alpha ~ normal(0,0.5);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(0.01,0.01); 
+
   y ~ gamma(y_sd, B);
   
 }

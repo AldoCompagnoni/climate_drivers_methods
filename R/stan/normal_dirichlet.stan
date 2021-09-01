@@ -27,18 +27,20 @@ transformed parameters {
 model {
   
   // priors  
-  alpha ~ normal(0,1);
+  alpha ~ normal(0,0.5);
   beta  ~ normal(0,1);
-  y_sd  ~ gamma(1,1);
+  y_sd  ~ gamma(0.01,0.01); 
   theta ~ dirichlet(rep_vector(1.0, n_lag));
    
   // model
-  y ~ normal( yhat, y_sd);
+  y ~ normal(yhat, y_sd); 
+   
 }
 
 generated quantities {
   vector[n_time] log_lik;
-
+  
   for (n in 1:n_time)
-    log_lik[n] = normal_lpdf(y[n] | yhat[n], y_sd);
+  log_lik[n] = normal_lpdf(y[n] | yhat[n], y_sd );
+
 }

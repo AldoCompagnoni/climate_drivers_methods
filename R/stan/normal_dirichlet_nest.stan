@@ -40,7 +40,7 @@ model {
   // priors
   alpha   ~ normal(0,1);
   beta    ~ normal(0,1);
-  y_sd    ~ gamma(1,1);
+  y_sd    ~ gamma(0.01,0.01); 
   theta_y ~ dirichlet(rep_vector(1.0, K));
   theta_m ~ dirichlet(rep_vector(1.0, M));
 

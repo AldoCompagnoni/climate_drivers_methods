@@ -17,9 +17,9 @@ parameters {
 model {
   
   // priors
-  alpha ~ normal(0,1);
+  alpha ~ normal(0,0.5);
   beta  ~ normal(0,1);
-  y_sd  ~ gamma(1,1);
+  y_sd  ~ gamma(0.01,0.01); 
   
   // model
   y_train ~ normal(alpha + beta * clim_means_train, y_sd);

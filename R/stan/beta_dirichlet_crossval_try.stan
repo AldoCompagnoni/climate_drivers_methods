@@ -39,32 +39,32 @@ transformed parameters {
 model {
   
   // priors
-  alpha ~ normal(0,0.5);
+  alpha ~ normal(0,1);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
   theta ~ dirichlet( rep_vector(1.0, n_lag) );
   
   // model
-  y_train ~ beta(A, B);
+  y_train ~ beta(alpha + beta * x, y_sd);
 }
-
-generated quantities {
-  vector[n_train] log_lik;
-  vector[n_test]  log_lik_test;
-  vector[n_test]  pred_y;
-  real            pred_x;
-  real<lower=0>   A_test[n_test];               // parameter for beta distn
-  real<lower=0>   B_test[n_test];               // parameter for beta distn
-  
-  for (n in 1:n_train)
-    log_lik[n] = beta_lpdf(y_train[n] | A[n], B[n]);
-  
-  // out of sample prediction
-  for(n in 1:n_test){
-    pred_x          = sum(theta .* clim_test[,n]);
-    pred_y[n]       = inv_logit(alpha + pred_x * beta);
-    A_test[n]       = pred_y[n] * y_sd;
-    B_test[n]       = (1.0 - pred_y[n]) * y_sd;
-    log_lik_test[n] = beta_lpdf(y_test[n] | A_test[n], B_test[n]);
-  }
-}
+// 
+// generated quantities {
+//   vector[n_train] log_lik;
+//   vector[n_test]  log_lik_test;
+//   vector[n_test]  pred_y;
+//   real            pred_x;
+//   real<lower=0>   A_test[n_test];               // parameter for beta distn
+//   real<lower=0>   B_test[n_test];               // parameter for beta distn
+//   
+//   for (n in 1:n_train)
+//     log_lik[n] = beta_lpdf(y_train[n] | A[n], B[n]);
+//   
+//   // out of sample prediction
+//   for(n in 1:n_test){
+//     pred_x          = sum(theta .* clim_test[,n]);
+//     pred_y[n]       = inv_logit(alpha + pred_x * beta);
+//     A_test[n]       = pred_y[n] * y_sd;
+//     B_test[n]       = (1.0 - pred_y[n]) * y_sd;
+//     log_lik_test[n] = beta_lpdf(y_test[n] | A_test[n], B_test[n]);
+//   }
+// }

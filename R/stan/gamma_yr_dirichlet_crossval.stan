@@ -27,6 +27,11 @@ model {
   // place holder  
   vector[n_train] mu; // transf. lin. pred. for mean
   
+  // parameters of data model
+  alpha ~ normal(0,1);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(0.01,0.01); 
+  
   // likelihood
   for(n in 1:n_train)
     mu[n] = exp(alpha + x[n] * beta);

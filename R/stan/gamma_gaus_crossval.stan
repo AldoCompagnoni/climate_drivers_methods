@@ -52,9 +52,9 @@ model {
   sens_mu ~ normal(6.5, 12);
   
   // priors
-  alpha ~ normal(0,1);
+  alpha ~ normal(0,0.5);
   beta  ~ normal(0,1);
-  y_sd  ~ gamma(1,1); 
+  y_sd  ~ gamma(0.01,0.01); 
   
   y_train ~ gamma(y_sd, y_sd ./ yhat);
   

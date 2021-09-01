@@ -28,7 +28,7 @@ transformed parameters {
 model {
   
   // priors
-  alpha ~ normal(0,1);
+  alpha ~ normal(0,0.5);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1); 
 

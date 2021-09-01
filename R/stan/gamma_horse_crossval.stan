@@ -47,6 +47,7 @@ parameters {
   real<lower=0> hs_c2;  // slab regularization parameter
   real<lower=0> y_sd;  // shape parameter
 }
+
 transformed parameters {
   vector[n_lag] beta;  // population-level effects
   vector[n_train] yhat;
@@ -72,7 +73,7 @@ model {
   target += normal_lpdf(hs_local[1] | 0, 1)
     - 36 * log(0.5);
   target += inv_gamma_lpdf(hs_local[2] | 0.5 * hs_df, 0.5 * hs_df);
-  target += normal_lpdf(alpha | 0, 2);
+  target += normal_lpdf(alpha | 0, 0.5);
   target += normal_lpdf(hs_global[1] | 0, 1)
     - 1 * log(0.5);
   target += inv_gamma_lpdf(hs_global[2] | 0.5 * hs_df_global, 0.5 * hs_df_global);

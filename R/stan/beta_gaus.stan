@@ -55,10 +55,10 @@ model {
   
   // hyper-parameters to weight climate effects 
   sens_sd ~ normal(0.5, 12);
-  sens_mu ~ normal(18.5, 36);
+  sens_mu ~ normal(6.5, 12);
   
   // parameters of data model
-  alpha ~ normal(0,1);
+  alpha ~ normal(0,0.5);
   beta  ~ normal(0,1);
   y_sd  ~ gamma(1,1);
 

@@ -14,8 +14,9 @@ parameters {
 
 model {
   
-  // prior
-  y_sd ~ gamma(1,1);
+  // priors
+  alpha ~ normal(0,0.5);
+  y_sd  ~ gamma(0.01,0.01); 
   
   // model
   y_train ~ normal(alpha, y_sd);

@@ -25,8 +25,9 @@ model {
     mu[ny] = alpha;
   }
   
-  // prior
-  y_sd  ~ gamma(1,1);
+  // priors
+  alpha ~ normal(0,0.5);
+  y_sd  ~ gamma(0.01,0.01); 
   
   // model
   y ~ normal(mu, y_sd);
@@ -34,7 +35,8 @@ model {
 
 generated quantities {
   vector[n_time] log_lik;
-
+  
   for (n in 1:n_time)
-    log_lik[n] = normal_lpdf(y[n] | alpha, y_sd);
+  log_lik[n] = normal_lpdf(y[n] | alpha, y_sd );
+
 }

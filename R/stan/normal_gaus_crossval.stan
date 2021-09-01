@@ -40,15 +40,18 @@ transformed parameters {
 
 model {
   
-  // priors
-  alpha ~ normal(0,1);
-  beta  ~ normal(0,1);
-  y_sd  ~ gamma(1,1);
+  // hyper-parameters to weight climate effects
   sens_sd ~ normal(0.5, 12);
-  sens_mu ~ normal(18.5, 36); 
+  sens_mu ~ normal(6.5, 12);
+
+  // priors
+  alpha ~ normal(0,0.5);
+  beta  ~ normal(0,1);
+  y_sd  ~ gamma(0.01,0.01); 
   
   // model
   y_train ~ normal(alpha + beta * x, y_sd);
+  
 }
 
 generated quantities {

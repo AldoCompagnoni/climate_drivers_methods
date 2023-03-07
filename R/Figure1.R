@@ -6,13 +6,119 @@ rm(list=ls())
 setwd("C:/cloud/Dropbox/sApropos/")
 source("C:/CODE/moving_windows/format_data.R")
 library(tidyverse)
-library(dismo)
-library(mgcv)
+# library(dismo)
+# library(mgcv)
 library(testthat)
-library(rstan)
-library(loo)
-library(evd)
+# library(rstan)
+# library(loo)
+# library(evd)
 library(DirichletReg)
+# library(gtools)
+library(ggthemes)
+library(gridExtra)
+
+
+# FIGURE for first submission --------------------------------------------------
+
+# normal
+prod_norm <- function( m, s ){
+  dnorm( 1:12, mean = m, sd = s ) / 
+    sum( dnorm( 1:12, mean = m, sd = s) )
+}
+
+set.seed(1400)
+offset  <- 0.25
+dalph <- replace( rep(1,12), 3, 6)
+w_csm <- data.frame( x     = 1:12,
+                     w     = 1/12,
+                     shape = 1,
+                     model = 'CSM')
+w_wmm <- data.frame( x     = 1:12 - offset,
+                     w     = prod_norm(2, 2),
+                     shape = 2,
+                     model = 'WMM')
+w_sam <- data.frame( x     = 1:12 + offset,
+                     shape = 3,
+                     w     = rdirichlet(1, dalph )[1,],
+                     model = 'SAM')
+w_mok <- data.frame( x     = 1,
+                     w     = -5,
+                     shape = 18,
+                     model = 'FHM')
+eff <- data.frame( x       = 1:12,
+                   eff = rnorm(12, 0, 0.001) ) %>% 
+  mutate( eff = replace( eff, 3, 0.25) ) %>% 
+  mutate( eff = replace( eff, 10, -0.1) ) %>% 
+  mutate( ymin = eff - runif( nrow(.), 0.1, 0.2),
+          ymax = eff + runif( nrow(.), 0.1, 0.2) )
+
+
+p1 <- list( w_csm,
+            w_wmm,
+            w_sam,
+            w_mok) %>% 
+  bind_rows %>% 
+  mutate( shape = as.factor(shape) ) %>% 
+  mutate( model = factor(model, levels = c('CSM','WMM','SAM','FHM')) ) %>% 
+  mutate( ymin = w - runif( nrow(.), 0.01, 0.02),
+          ymax = w + runif( nrow(.), 0.01, 0.02) ) %>% 
+  mutate( ymin = replace(ymin, model == 'CSM', w[model == 'CSM']),
+          ymax = replace(ymax, model == 'CSM', w[model == 'CSM']) ) %>% 
+  ggplot() +
+  geom_pointrange( aes(x, w,
+                       ymin  = ymin,
+                       ymax  = ymax,
+                       group = model,
+                       color = model,
+                       shape = model) ) +
+  scale_color_colorblind() +
+  theme_minimal() +
+  labs( x     = 'Month',
+        y     = 'Weight',
+        color = 'Model',
+        pch   = 'Model') + 
+  scale_x_continuous( breaks = seq(1,12,by=1) ) +
+  scale_shape_manual( values = c(16,17,15,18) ) + 
+  annotate("text", x=-1.7, y=0.3875,label="A)",size=4)+
+  coord_cartesian( ylim=c(0, 0.375),
+                   xlim=c(0, 13 ),
+                   clip="off") +
+  theme( axis.text.x = element_text( angle = 90,
+                                     vjust = 0.5 ) )
+
+
+p2 <- ggplot( eff ) +
+  geom_pointrange( aes(x, eff,
+                       ymin  = ymin,
+                       ymax  = ymax),
+                   shape = 18,
+                   color = '#009E73') + 
+  theme_minimal() + 
+  labs( x     = 'Month',
+        y     = 'Effect size' ) + 
+  scale_x_continuous( breaks = seq(1,12,by=1) ) +
+  annotate("text", x=-1.7, y=0.465,label="B)",size=4)+
+  coord_cartesian( ylim=c(-0.3, 0.43),
+                   xlim=c(0, 13 ),
+                   clip="off" ) +
+  theme( plot.margin = margin(t = 0, r = 72.5, b = 0, l = 0),
+         axis.text.x = element_text( angle = 90,
+                                     vjust = 0.5 ) )
+
+
+ggsave( 'results/fig1_horiz.png', 
+        plot = grid.arrange( p1, p2, ncol=2, widths=c(2,1.5)), 
+        height = 2.5, width = 6.3)
+
+ggsave( 'results/fig1_vertical.png', 
+        plot   = grid.arrange( p1, p2, nrow=2, ncol = 1 ),
+        height = 4.3, width = 3.15 )
+
+ggsave( 'results/fig1A.png', 
+        plot = p1, height = 2.5, width = 3.15)
+ggsave( 'results/fig1B.png', 
+        plot = p2, height = 2.5, width = 2.5)
+
 
 # SIMPLIFIED FIGURE FIRST! ----------------------------
 

@@ -5,10 +5,11 @@ Code linked to the preprint [Predictive ability of climate on vital rates and po
 Key points to use this repository:
 
 * This repository contains all of the work done on this project since fall 2017. To establish a stronger link to the preprint, start from file _wrapper.R_. 
-* We did not include the data to reproduce the results in this repository, because it occupies _XXXXX MB_. To obtain these model results, please contact the corresponding author, or wait for the published article.
+* We did not include the data to reproduce the results in this repository, because it occupies 700 MB. To obtain these model results, please contact the corresponding author, or wait for the published article.
 * The STAN code is contained in directory _/stan_
 * The files used on the supercomputer are in directory _/supercomp_
 * To establish a connection with the manuscript figures:
+
   + Figure 1 in main manuscript: _R/mod_sel_continuous_summ.R_ produces _weight_by_mod_and_climvar_box_dot.tiff_
   + Figure 2 in main manuscript: _R/mod_sel_continuous_summ.R_ produces _weight_nullmodel_by_response_dot.tiff_
   + Figure S1 in appendix: _R/Figure1.R_, produces file _fig1_vertical.png_

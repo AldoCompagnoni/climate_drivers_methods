@@ -228,33 +228,33 @@ all_vr_data <- read.csv('results/prior_pc/all_vr_data.csv') %>%
 
 # Simulations
 sim_df <- list( 
-                'Null'  = mutate( null_r_sim, model = 'Null'), 
-                'Year'  = mutate( yr_r_sim,   model = 'Year'), 
-                'WMM'   = mutate( gaus_r_sim, model = 'Gaus'), 
+                'NM'  = mutate( null_r_sim, model = 'NM'), 
+                'CSM'   = mutate( yr_r_sim,   model = 'CSM'), 
+                'WMM'   = mutate( gaus_r_sim, model = 'WMM'), 
                 'SAM'   = mutate( sam_r_sim,  model = 'SAM'), 
-                'Horse' = mutate( fh_r_sim,   model = 'Horse')
+                'FHM'   = mutate( fh_r_sim,   model = 'FHM')
              ) %>% 
             # lapply( function(x) dplyr::select(x, model,yhat,y_sim, beta) ) %>% 
             bind_rows %>% 
             mutate( yhat_noalpha = yhat - alpha ) %>% 
-            bind_rows( all_vr_data )
-
-sim_df %>% 
-  subset( model == 'SAM' ) %>% 
-  .$y_sim %>% hist
+            bind_rows( all_vr_data ) %>% 
+            mutate( model = factor( model,
+                                    levels = c('Data', 'NM', 'CSM',
+                                               'WMM' , 'SAM',  'FHM') )
+                    )
 
 
 # y_sim figures priors
-ggplot(sim_df, aes(y_sim) ) + 
+p1 <- ggplot(sim_df, aes(y_sim) ) + 
   geom_histogram( 
-    aes(y = ..density..)
-  ) +
+    aes(y = ..density..) ) +
   facet_wrap( ~ model ) +
   xlim(-5,5) +
-  # ylim(0,0.5) +
   theme_minimal() +
-  labs( y = 'Density' ) +
+  labs( y = 'Kenrel density estimate',
+        x = 'Data (Simulated or observed)' ) +
   theme( strip.text = element_text( size = 15),
-         axis.title  = element_text( size = 15) ) +
-  ggsave( 'results/prior_pc/normal_y_sim.tiff',
-          width = 6.3, height = 4, compression = 'lzw' )
+         axis.title  = element_text( size = 15) ) 
+
+ggsave( 'results/prior_pc/normal_y_sim.tiff', p1, 
+        width = 6.3, height = 4, compression = 'lzw' )

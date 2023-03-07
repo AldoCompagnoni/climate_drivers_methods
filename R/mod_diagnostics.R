@@ -14,6 +14,7 @@ library(viridis)
 require(gridExtra)
 library(egg)
 library(stringr)
+library(cowplot)
 options(stringsAsFactors = F )
 
 # quote a series of bare names
@@ -172,6 +173,29 @@ mod_sum_df  <- Map(create_sum_df, path_l,
 #                f_paths, spp_v, resp_v) %>% 
 #                bind_rows %>% 
 
+# Introduce model acronyms -----------------------------------------------------
+
+# labels for models to plot on x-axis
+mod_labs    <- quote_bare( ctrl1, 
+                           yr1,    yr2,     yr3,
+                           gaus1,  gaus2,   gaus3,
+                           simpl1, simpl2,  simpl3,
+                           ridge1, ridge2,  ridge3 )
+
+new_labs    <- c( 'NM', 
+                  'CSM 1', 'CSM 2', 'CSM 3',
+                  'WMM 1', 'WMM 2', 'WMM 3',
+                  'SAM 1', 'SAM 2', 'SAM 3',
+                  'FHM 1', 'FHM 2', 'FHM 3' )
+
+labs_df     <- data.frame( model     = mod_labs,
+                           new_model = new_labs )
+
+
+
+# Diagnostics data frame -----------------------------------------------------------
+
+# diagnostics data frame
 diag_df <- mod_sum_df %>% 
                left_join( rep_n_df ) %>% 
                # Add "flags" for convergence issues
@@ -190,8 +214,13 @@ diag_df <- mod_sum_df %>%
                        sppcode2 = substr(gsub('.{1,40}_', '', species, perl=T), 1, 2)
                        ) %>% 
                # make species code
-               mutate( sppcode  = paste0(sppcode1,sppcode2) %>% toupper )
-
+               mutate( sppcode  = paste0(sppcode1,sppcode2) %>% toupper ) %>% 
+               # Correct model acronyms
+               left_join( labs_df ) %>% 
+               subset( model %in% mod_labs ) %>% 
+               dplyr::select( -model ) %>% 
+               rename( model = new_model ) %>% 
+               mutate( model = factor(model, levels = new_labs) ) 
 
 # focus on divergent transitions only
 mod_div_df <- diag_df %>% 
@@ -311,12 +340,18 @@ ggsave(file = 'results/converg/prop_issue_mod.tiff',
 
 # proportion of issues by model AND VITAL RATE 
 
+# update the response variable
 update <- data.frame( response = c('surv','grow','fec','log_lambda'),
                       Response = c('Survival',
-                                   'Growth',
-                                   'Fecundity',
-                                   'log(Lambda)') 
-                      )
+                                   'Development',
+                                   'Reproduction',
+                                   'log(\u03BB)') ) %>% 
+            mutate(   Response = factor(Response, levels = c('Survival',
+                                                             'Development',
+                                                             'Reproduction',
+                                                             'log(\u03BB)') ) 
+                  )
+            
 
 # prop divergent transitions
 div_df     <- diag_df %>% 
@@ -364,6 +399,7 @@ p1 <- ggplot(div_df, aes(model, p_div)) +
         ylab( 'Prop. div issue' )+
         xlab( 'Model' ) +
         scale_color_colorblind() +
+        theme_bw() + 
         theme( axis.text.x  = element_text(angle = 90, 
                                            hjust = 1,
                                            vjust = 0.5), 
@@ -377,6 +413,7 @@ p2 <- ggplot(rhat_df, aes(model, p_rhat)) +
         ylab( 'Prop. rhat issue' )+
         xlab( 'Model' ) +
         scale_color_colorblind() +
+        theme_bw() + 
         theme( axis.text.x  = element_text(angle = 90, 
                                            hjust = 1,vjust = 0.5), 
                axis.title   = element_text( size = 12),
@@ -390,6 +427,7 @@ p3 <- ggplot(mcse_df, aes(model, p_mcse)) +
         ylab( 'Prop. mcse issue' )+
         xlab( 'Model' ) +
         scale_color_colorblind() +
+        theme_bw() + 
         theme( axis.text.x  = element_text(angle = 90, 
                                            hjust = 1,vjust = 0.5), 
                axis.title      = element_text( size = 12),
@@ -403,50 +441,33 @@ p4 <- ggplot(n_eff_df, aes(model, p_n_eff)) +
         ylab( 'Prop. n_eff issue' )+
         xlab( 'Model' ) +
         scale_color_colorblind() +
+        theme_bw() + 
         theme( axis.text.x  = element_text(angle = 90, 
                                            hjust = 1,vjust = 0.5), 
                axis.title      = element_text( size = 12),
                legend.position="none" )
 
 
-# quick legend labels
-leg_lab_df <- data.frame( 
-                response  = c('surv','grow','fec','log_lambda'),
-                response1 = c('Survival', 'Growth', 'Fecundity',
-                              'Log(lambda)')
-                )
+plot_4x4 <- plot_grid(
+  p1 + theme(legend.position="none" ), p2,
+  p3, p4, 
+  align = 'vh',
+  labels = c("A", "B", "C", "D"),
+  hjust = -0.5,
+  nrow = 2
+)
 
-# store legend
-leg <- n_eff_df %>% 
-        left_join( leg_lab_df ) %>% 
-        ggplot( aes(model, p_n_eff)) +
-        scale_color_colorblind() +
-        geom_point(aes( color = response1) ) +
-        theme( legend.position = 'right') +
-        labs( color = 'Response' )
+# produce legend
+legend <- cowplot::get_legend(
+  # create some space to the left of the legend
+  p1 + theme(legend.box.margin = margin(0, 2, 0, 12))
+)
 
-# only extract legend from a ggplot
-get_legend <- function(a.gplot){ 
-    tmp <- ggplot_gtable(ggplot_build(a.gplot)) 
-    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box") 
-    legend <- tmp$grobs[[leg]] 
-    legend
-} 
+out_p <- plot_grid(plot_4x4, legend, rel_widths = c(3, 0.7))
 
-# prepare plotting layout
-lay <- rbind(c(1,1,2,2,3),
-             c(1,1,2,2,3),
-             c(4,4,5,5,NA),
-             c(4,4,5,5,NA))
-
-out_p <- grid.arrange(p1,p2,get_legend(leg), p3, p4, 
-             layout_matrix = lay)
 ggsave(file = 'results/converg/prop_issue_mod_vr.tiff',
        plot = out_p, width = 6.3, height = 5,
        compression="lzw")
-
-ggarrange(q1,q2, ncol = 1, labels = c("a)","b)"))
-
 
 
 # proportion of issues by replication of years 
@@ -489,6 +510,7 @@ p1 <- ggplot(div_df, aes(rep_yr, p_div)) +
         # ylim(0 ,1 ) +
         ylab( 'Prop. div issue' )+
         xlab( 'Number of years' ) +
+        theme_bw() +
         theme( axis.text.x  = element_text(angle = 90, 
                                            hjust = 1,vjust = 0.5), 
                axis.title      = element_text( size = 15),
@@ -503,6 +525,7 @@ p2 <- ggplot(rhat_df, aes(rep_yr, p_rhat)) +
         # ylim(0 ,1 ) +
         ylab( 'Prop. rhat issue' )+
         xlab( 'Number of years' ) +
+        theme_bw() +
         theme( axis.text.x  = element_text(angle = 90, 
                                            hjust = 1,vjust = 0.5), 
                axis.title      = element_text( size = 15),
@@ -517,6 +540,7 @@ p3 <- ggplot(mcse_df, aes(rep_yr, p_mcse)) +
         # ylim(0 ,1 ) +
         ylab( 'Prop. mcse issue' )+
         xlab( 'Number of years' ) +
+        theme_bw() +
         theme( axis.text.x  = element_text(angle = 90, 
                                            hjust = 1,vjust = 0.5), 
                axis.title      = element_text( size = 15),
@@ -525,8 +549,9 @@ p3 <- ggplot(mcse_df, aes(rep_yr, p_mcse)) +
 p4 <- ggplot(n_eff_df, aes(rep_yr, p_n_eff)) +
         geom_point(aes(size = '0.7') ) +
         # ylim(0 ,1 ) +
-        ylab( 'Prop. n_eff issue' )+
+        ylab( 'Prop. n_eff issue' ) +
         xlab( 'Number of years' ) +
+        theme_bw() +
         theme( axis.text.x  = element_text(angle = 90, 
                                            hjust = 1,vjust = 0.5), 
                axis.title      = element_text( size = 15),
@@ -535,8 +560,18 @@ p4 <- ggplot(n_eff_df, aes(rep_yr, p_n_eff)) +
 cor(n_eff_df$rep_yr, n_eff_df$p_n_eff)
 
 out_p <- grid.arrange(p1, p2, p3, p4, nrow=2, ncol=2) 
+out_p <- plot_grid(
+  p1 + theme(legend.position="none" ), p2,
+  p3, p4, 
+  align = 'vh',
+  labels = c("A", "B", "C", "D"),
+  hjust = -0.5,
+  nrow = 2
+)
+
+
 ggsave(file = 'results/converg/prop_issue_rep_yr.tiff',
-       plot = out_p, width = 6.3, height = 6.3,
+       plot = out_p, width = 6.3, height = 5,
        compression="lzw")
 
 
@@ -615,6 +650,35 @@ create_sum_df <- function(path_l,
   
 }
 
+# a common format for both diagnost_df and plot_l_df
+format_species_names <- function( x ){
+  
+  x %>% 
+    # remove "double" populations
+    subset( !(species %in% c('Astragalus_scaphoides_6_site_rep',
+                             'Astragalus_scaphoides_2')) ) %>% 
+    mutate( species   = gsub('_',' ',species) ) %>% 
+    mutate( species = replace(species,
+                              grepl('Eriogonum',species),
+                              'Eriogonum longifolium...') ) %>% 
+    mutate( species = replace(species,
+                              grepl('Astragalus scaphoides 6 long',species),
+                              'Astragalus scaphoides') ) %>% 
+    mutate( species = replace(species,
+                              grepl('Cirsium pitcheri 8',species),
+                              'Cirsium pitcheri (1)') ) %>% 
+    mutate( species = replace(species,
+                              grepl('Cirsium pitcheri 4',species),
+                              'Cirsium pitcheri (2)') ) %>% 
+    mutate( species = replace(species,
+                              grepl('Cirsium pitcheri 6',species),
+                              'Cirsium pitcheri (3)') ) %>% 
+    # remove the "floating 2" left
+    mutate( species = gsub(' 2','',species) ) 
+  
+}
+
+
 # get all model summaries
 diagnost_df  <- Map(create_sum_df, path_l,
                     spp_names, resp_clim) %>% 
@@ -623,9 +687,16 @@ diagnost_df  <- Map(create_sum_df, path_l,
                   separate( resp_clim, c('response','clim'),sep='_') %>% 
                   mutate( response = gsub('loglambda', 'log_lambda', response) ) %>%
                   subset( !(model %in% c('gaus','simpl_n','ridge')) ) %>% 
-                  mutate( model = factor(model, levels=mod_ordr) )
+                  mutate( model = factor(model, levels=mod_ordr) ) %>% 
+                  format_species_names %>% 
+                  # Introduce "correct" model names
+                  left_join( labs_df ) %>% 
+                  subset( model %in% mod_labs ) %>% 
+                  dplyr::select( -model ) %>% 
+                  rename( model = new_model ) %>% 
+                  mutate( model = factor(model, levels = c(new_labs[2:13],new_labs[1])) )
 
-# plot
+# Plot
 
 # data frame containing inputs
 plot_l_df  <- expand.grid( resp     = c('log_lambda','surv',
@@ -633,22 +704,32 @@ plot_l_df  <- expand.grid( resp     = c('log_lambda','surv',
                            clim_var = c('precip','airt'),
                            species  = spp,
                            stringsAsFactors = F ) %>% 
-                  mutate( resp_clim = paste(resp, clim_var, sep='_') ) 
-
-
+                  mutate( resp_clim = paste(resp, clim_var, sep='_') ) %>% 
+                  format_species_names
+                  
 
 # plot rhat vs. neff for each species/climate variable/response BY SPECIES
 plot_rhat_neff_spp <- function(ii){
+  
+  print(ii)
   
   plot_df <- diagnost_df %>% 
     subset( response == plot_l_df$resp[ii] &
               clim     == plot_l_df$clim_var[ii] &
               species  == plot_l_df$species[ii] )
   
+  title_spp <- plot_df$species %>% unique
+  
   if( nrow(plot_df) > 1 ){
-    ggplot(plot_df) +
+    
+    plot_out <- 
+      ggplot(plot_df) +
       geom_point( aes(n_eff,Rhat) ) +
-      facet_wrap( ~ model) + 
+      facet_wrap( ~ model, ncol = 3) + 
+      labs( title = title_spp,
+            x     = expression('N'['eff']),
+            y     = expression(hat(R)) ) +
+      theme_bw() +
       theme( strip.text.y  = element_text( size = 10,
                                            margin = margin(0.5,0.5,0.5,0.5,
                                                            'mm') ),
@@ -656,15 +737,23 @@ plot_rhat_neff_spp <- function(ii){
                                            margin = margin(0.5,0.5,0.5,0.5,
                                                            'mm') ),
              strip.switch.pad.wrap = unit('0.5',unit='mm'),
-             panel.spacing = unit('0.5',unit='mm') 
-      ) +
-      ggsave(paste0(getwd(),
+             panel.spacing = unit('0.5',unit='mm'),
+             plot.title    = element_text( hjust = 0.5,
+                                           size  = 20),
+             axis.title    = element_text( vjust = 1,
+                                           hjust = 0.5,
+                                           size  = 17)
+            ) 
+    
+      # store plot
+      ggsave( paste0(getwd(),
                     '/results/converg/rhat_neff/',
                     substr(unique(plot_df$clim),1,4),'/',
                     unique(plot_df$response),'/',
                     unique(plot_df$species),'_neff_rhat',
-                    '.tiff'),
-             width=6.3,height=9,compression='lzw')
+                    '.png'),
+             plot = plot_out,
+             width=6.3,height=9)
   }
   
 }
@@ -734,7 +823,7 @@ diagnost_df %>%
                                                        'mm') ),
          strip.switch.pad.wrap = unit('0.5',unit='mm'),
          panel.spacing = unit('0.5',unit='mm') 
-         ) +
+         ) 
   ggsave(paste0('results/converg/rhat_neff/prec_neff_rhat.tiff'),
          width=6.3,height=6.3,compression='lzw')
 
@@ -768,20 +857,22 @@ diagnost_df %>%
 
 # ACROSS temperature and precipitation 
 diagnost_df %>% 
-  left_join( leg_lab_df ) %>% 
+  left_join( update ) %>%
+  # left_join( leg_lab_df ) %>% 
   ggplot() +
   geom_point( aes(n_eff,
                   Rhat,
-                  color = response1),
-              alpha = 0.2) +
+                  color = Response),
+              alpha = 0.4) +
   geom_hline( aes(yintercept = 1.1), 
               lty = 2) +
   ylim(1, 1.15) +
-  facet_wrap( ~ model) + 
+  facet_wrap( ~ model, nrow = 6) + 
   scale_color_viridis_d() +
   labs( y     = expression(hat(R)),
         x     = 'Effective sample size',
         color = 'Response') +
+  theme_bw() +
   theme( strip.text.y  = element_text( size = 20,
                                    margin = margin(0.5,0.5,0.5,0.5,
                                                    'mm') ),
@@ -789,10 +880,13 @@ diagnost_df %>%
                                        margin = margin(0.5,0.5,0.5,0.5,
                                                        'mm') ),
          strip.switch.pad.wrap = unit('0.5',unit='mm'),
-         panel.spacing = unit('0.5',unit='mm') 
-         ) +
-  ggsave('results/converg/rhat_neff/neff_rhat.tiff',
-         width=6.3,height=6.3,compression='lzw')
+         strip.background = element_blank(),
+         panel.spacing = unit('0.5',unit='mm'),
+         plot.margin = margin( r = 2, l = 0.5 ),
+         axis.title.y = element_text( angle = 0, vjust = 0.5 ),
+         axis.text.x  = element_text( angle = 60, hjust = 1 ) ) +
+  ggsave( 'results/converg/rhat_neff/neff_rhat.tiff',
+          width=6.3,height=8,compression='lzw' )
 
 
 

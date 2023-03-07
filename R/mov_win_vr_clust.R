@@ -1,4 +1,5 @@
-library(tidyverse)
+library(dplyr)
+library(tidyr)
 library(loo)
 print('load rstan')
 library(rstan)
@@ -470,8 +471,7 @@ mod_names  <- data.frame( model = c("ctrl1",
                                     "simpl1",  "simpl2","simpl3", 
                                     "ridge1",  "ridge2","ridge3", 
                                     "gaus",    "ridge", "simpl"),
-                          mod_n = c(1:16),
-                          stringsAsFactors = F )
+                          mod_n = c(1:16) )
 
 
 # leave-one-out estimates
@@ -525,6 +525,7 @@ waic_df   <- loo_compare(waic_l$waic_ctrl1,
 
 # crossvalidation function
 CrossVal <- function(i, mod_data, response){       # i is index for row to leave out
+  
   # identify years
   uniq_yr           <- mod_data$resp$year %>% unique 
   test_i            <- which(mod_data$resp$year == uniq_yr[i])
@@ -978,7 +979,7 @@ year_inds   <- seq_along(unique(mod_data$resp$year))
 cxval_res_ll<- lapply( year_inds, CrossVal, mod_data, response)
 
 # extra formatting
-pluck_res   <- function (i, what_i) cxval_res_ll[[i]] %>% pluck(what_i)
+pluck_res   <- function (ii, what_i) cxval_res_ll[[i]] %>% pluck(what_i)
 
 # put means/diagnostics, and posterior in separate lists
 mean_l      <- lapply( year_inds, pluck_res, 1 )
@@ -1031,14 +1032,14 @@ names(cxval_pred)
 
 # mean squared error
 mse <- cxval_pred %>%
-  dplyr::select( grep('_pred',names(.),value=T) ) %>%
+  dplyr::select(ctrl1_pred:expp_n_pred) %>%
   lapply(pred_perform, mod_data, response, "mse") %>%
   perform_format("mse") %>%
   mutate( model = gsub("_pred","",model) )
 
 # Expected Log Predictive Density
 elpd <- cxval_pred %>%
-  dplyr::select( grep('_elpd',names(.),value=T) ) %>%
+  dplyr::select(ctrl1_pred:expp_n_elpd) %>%
   apply(2, sum) %>%
   as.matrix %>%
   as.data.frame %>%

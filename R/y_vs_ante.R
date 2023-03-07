@@ -282,7 +282,7 @@ plot_yr <- function(mod, response){
           ylab( response ) +
           xlab( 'Anomaly' ) +
           theme_minimal() +
-          ggtitle( mod ) +
+          ggtitle( gsub('yr','year ',mod) ) +
           theme( plot.title = element_text( hjust = 0.5) )
   
   for(ii in 1:200){
@@ -430,7 +430,7 @@ plot_gaus <- function(mod, response){
     ylab( response ) +
     xlab( 'X antecedent' ) +
     theme_minimal() +
-    ggtitle( gsub('gaus',"gaus yr",mod) ) +
+    ggtitle( gsub('gaus',"year ",mod) ) +
     theme( plot.title = element_text( hjust = 0.5) )
   
   for(ii in 1:200){
@@ -587,7 +587,7 @@ plot_simpl <- function(mod, response){
     ylab( response ) +
     xlab( 'X antecedent' ) +
     theme_minimal() +
-    ggtitle( gsub('simpl',"simpl yr",mod) ) +
+    ggtitle( gsub('simpl',"year ",mod) ) +
     theme( plot.title = element_text( hjust = 0.5) )
   
   for(ii in 1:200){
@@ -607,6 +607,7 @@ plot_simpl <- function(mod, response){
                 aes(x=x,y=y),
                 color = 'grey' )  +
       theme_minimal() +
+      ggtitle( gsub('simpl',"year ",mod) ) +
       theme( plot.title = element_text( hjust = 0.5) )
     
     # y vs. antecedent
@@ -625,6 +626,8 @@ plot_simpl <- function(mod, response){
       geom_point( data = pl_df,
                   aes(x=x, y=y) ) +
       geom_line( data = plot_ii, aes(x=x, y=y),size=1 ) +
+      ggtitle( gsub('simpl',"year ",mod) ) +
+      theme( plot.title = element_text( hjust = 0.5) ) +
       theme_minimal()
     
   }
@@ -712,7 +715,7 @@ plot_ridge <- function(mod, response){
                   ylab( expression(beta*' values') ) +
                   xlab('month') +
                   theme_minimal() +
-                  ggtitle( gsub('ridge',"ridge yr",mod) ) +
+                  ggtitle( gsub('ridge',"year ",mod) ) +
                   theme( plot.title = element_text( hjust = 0.5) )
   
   # plot it out
@@ -756,35 +759,90 @@ plot_all <- function(ii, response, clim_var, mod, foo ){
   
   # plot plots together
   if( mod == 'yr' ){
-    out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]], 
-                              grob_yr2[[1]], grob_yr2[[2]], 
-                              grob_yr3[[1]], grob_yr3[[2]],
-                              ncol = 2, 
-                              top  = textGrob( spp_name,
-                                               gp = gpar(fontsize=20,
-                                                         font=3) ) 
-                              ) 
+    tg <- textGrob(gsub('_',' ',spp_name), gp = gpar(fontsize = 15, fontface = 'bold'))
+    sg <- textGrob('Linear regression',    gp = gpar(fontsize = 12))
+    margin <- unit(0.5, "line")
+    grided <- gridExtra::grid.arrange( grob_yr1[[1]], grob_yr1[[2]], 
+                                       grob_yr2[[1]], grob_yr2[[2]], 
+                                       grob_yr3[[1]], grob_yr3[[2]],
+                                       ncol = 2 )
+    out_p    <- gridExtra::grid.arrange(tg, sg, grided,
+                            heights = unit.c(grobHeight(tg) + 1.2*margin, 
+                                             grobHeight(sg) + margin, 
+                                             unit(1,"null")))
+    
+    # out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]], 
+    #                           grob_yr2[[1]], grob_yr2[[2]], 
+    #                           grob_yr3[[1]], grob_yr3[[2]],
+    #                           ncol = 2, 
+    #                           top  = textGrob( spp_name,
+    #                                            gp = gpar(fontsize=20,
+    #                                                      font=3) ) 
+    #                           ) 
   }
-  if( mod %in% c('gaus','simpl') ){
-    out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]], grob_yr1[[3]], 
-                              grob_yr2[[1]], grob_yr2[[2]], grob_yr2[[3]], 
-                              grob_yr3[[1]], grob_yr3[[2]], grob_yr3[[3]],
-                              ncol=3, 
-                              top  = textGrob( spp_name,
-                                               gp = gpar(fontsize=20,
-                                                         font=3) ) 
-                              )
+  if( mod %in% c('gaus') ){
+    tg <- textGrob(gsub('_',' ',spp_name), gp = gpar(fontsize = 15, fontface = 'bold'))
+    sg <- textGrob('Gaussian moving window',    gp = gpar(fontsize = 12))
+    margin <- unit(0.5, "line")
+    grided <- gridExtra::grid.arrange( grob_yr1[[1]], grob_yr1[[2]], grob_yr1[[3]], 
+                                       grob_yr2[[1]], grob_yr2[[2]], grob_yr2[[3]], 
+                                       grob_yr3[[1]], grob_yr3[[2]], grob_yr3[[3]],
+                                       ncol = 3 )
+    out_p  <- gridExtra::grid.arrange(tg, sg, grided,
+                                      heights = unit.c(grobHeight(tg) + 1.2*margin, 
+                                                       grobHeight(sg) + margin, 
+                                                       unit(1,"null")))
+    
+    # out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]], grob_yr1[[3]], 
+    #                           grob_yr2[[1]], grob_yr2[[2]], grob_yr2[[3]], 
+    #                           grob_yr3[[1]], grob_yr3[[2]], grob_yr3[[3]],
+    #                           ncol=3, 
+    #                           top  = textGrob( gsub('_',' ',spp_name),
+    #                                            gp = gpar(fontsize=20,
+    #                                                      font=3) ) 
+    #                           )
+  }
+  if( mod %in% c('simpl') ){
+    tg <- textGrob(gsub('_',' ',spp_name), gp = gpar(fontsize = 15, fontface = 'bold'))
+    sg <- textGrob('Stochastic Antecedent Model',    gp = gpar(fontsize = 12))
+    margin <- unit(0.5, "line")
+    grided <- gridExtra::grid.arrange( grob_yr1[[1]], grob_yr1[[2]], grob_yr1[[3]], 
+                                       grob_yr2[[1]], grob_yr2[[2]], grob_yr2[[3]], 
+                                       grob_yr3[[1]], grob_yr3[[2]], grob_yr3[[3]],
+                                       ncol = 3 )
+    out_p  <- gridExtra::grid.arrange(tg, sg, grided,
+                                      heights = unit.c(grobHeight(tg) + 1.2*margin, 
+                                                       grobHeight(sg) + margin, 
+                                                       unit(1,"null")))
   }
   if( mod == 'ridge' ){
-    out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]],
-                              grob_yr2[[1]], grob_yr2[[2]],
-                              grob_yr3[[1]], grob_yr3[[2]],
-                              ncol=2, 
-                              top  = textGrob( spp_name,
-                                               gp = gpar(fontsize=20,
-                                                         font=3) ) 
-                              )
+    tg <- textGrob( gsub('_',' ',spp_name), gp = gpar(fontsize = 15, fontface = 'bold'))
+    sg <- textGrob('Ridge regression',    gp = gpar(fontsize = 12))
+    margin <- unit(0.5, "line")
+    grided <- gridExtra::grid.arrange( grob_yr1[[1]], grob_yr1[[2]], 
+                                       grob_yr2[[1]], grob_yr2[[2]], 
+                                       grob_yr3[[1]], grob_yr3[[2]], 
+                                       ncol = 2 )
+    out_p  <- gridExtra::grid.arrange(tg, sg, grided,
+                                      heights = unit.c(grobHeight(tg) + 1.2*margin, 
+                                                       grobHeight(sg) + margin, 
+                                                       unit(1,"null")))
+    # out_p    <- grid.arrange( grob_yr1[[1]], grob_yr1[[2]],
+    #                           grob_yr2[[1]], grob_yr2[[2]],
+    #                           grob_yr3[[1]], grob_yr3[[2]],
+    #                           ncol=2, 
+    #                           top  = textGrob( gsub('_',' ',spp_name),
+    #                                            gp = gpar(fontsize=20,
+    #                                                      font=3) ) 
+    #                           )
   }
+  
+  paste0('results/y_vs_ante/',
+         clim_var_print,'/',
+         response,'/',
+         spp_name,'_',
+         mod,
+         '.tiff') %>% print
   
   ggsave(file =
            paste0('results/y_vs_ante/',

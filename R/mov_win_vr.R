@@ -11,14 +11,14 @@ rstan_options( auto_write = TRUE )
 options( mc.cores = parallel::detectCores() )
 
 # climate predictor, response, months back, max. number of knots
-response  <- "grow"
-clim_var  <- "airt"
+response  <- "fec"
+clim_var  <- "precip"
 m_back    <- 36    
 st_dev    <- FALSE
 
 # read data -----------------------------------------------------------------------------------------
 lam       <- read.csv("data/all_demog_updt.csv", stringsAsFactors = F)
-# m_info    <- read.csv("C:/cloud/Dropbox/sApropos/MatrixEndMonth_information.csv", stringsAsFactors = F)
+# m_info    <- read.csv("C:/Users/ac22qawo/Dropbox/sApropos/MatrixEndMonth_information.csv", stringsAsFactors = F)
 clim      <- data.table::fread(paste0('data/',clim_var,"_chelsa_prism_hays_2014.csv"),  stringsAsFactors = F)
 spp       <- lam$SpeciesAuthor %>% unique
 
@@ -34,7 +34,7 @@ if( response == "log_lambda" )                             family = "normal"
 expp_beta     <- 20
 
 # set species (I pick Sphaeraclea_coccinea)
-ii            <- 2
+ii            <- 4
 spp_name      <- spp[ii]
 
 # lambda data
@@ -104,7 +104,7 @@ dat_stan <- list(
   hs_df_global    = 1,   # 
   hs_df_slab      = 25,   # slab degrees of freedom
   hs_scale_global = (4 / (36-4)) / sqrt(nrow(mod_data$climate)), # global prior scale
-  hs_scale_slab   = 2    # slab prior scale
+  hs_scale_slab   = 0.1    # slab prior scale
 )
 
 # simulation parameters
@@ -341,7 +341,7 @@ fit_simpl_all <- stan(
   #control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20)
 )
 
-
+  
 # parameter values and diagnostics ----------------------------------------------------------------
 
 # list of model fits
@@ -651,7 +651,7 @@ CrossVal <- function(i, mod_data, response) {       # i is index for row to leav
   fit_simpl1_crossval <- sampling(
     object = readRDS(paste0("R/stan/",family,"_dirichlet_crossval.RDS")),
     data = dat_stan_crossval,
-    pars = c('theta',  'alpha', 'beta', 'y_sd', 
+    pars = c('theta',  'alpha', 'beta', 'y_sd', 'mu',
              'pred_y', 'log_lik_test'),
     warmup = sim_pars$warmup,
     iter = sim_pars$iter,
